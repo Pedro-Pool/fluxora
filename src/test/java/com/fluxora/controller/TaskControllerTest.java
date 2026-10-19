@@ -9,7 +9,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -22,6 +24,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(TaskController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class TaskControllerTest {
+
+    private static final String EMAIl = "test@fluxora.com";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -31,14 +36,20 @@ class TaskControllerTest {
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    private UsernamePasswordAuthenticationToken authentication(){
+        return new UsernamePasswordAuthenticationToken(EMAIl, "password");
+    }
+
     @Test
+    @WithMockUser(username = EMAIl)
     @DisplayName("It must create a task and return 201 Created.")
     void test_01() throws Exception{
         Task task = new Task("Study java", "Practice tests");
 
-        when(taskService.create("Study java", "Practice tests")).thenReturn(task);
+        when(taskService.create("Study java", "Practice tests", EMAIl)).thenReturn(task);
 
         mockMvc.perform(post("/api/tasks")
+                .principal(authentication())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                                 {
@@ -50,44 +61,59 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.title").value("Study java"))
                 .andExpect(jsonPath("$.description").value("Practice tests"))
                 .andExpect(jsonPath("$.completed").value(false));
-        verify(taskService).create("Study java", "Practice tests");
+
+        verify(taskService).create("Study java", "Practice tests", EMAIl);
     }
     @Test
+    @WithMockUser(username = EMAIl)
     @DisplayName("Should list tasks and return 200 OK")
     void test_02() throws Exception{
-        when(taskService.findAll()).thenReturn(List.of(
+        when(taskService.findAll(EMAIl)).thenReturn(List.of(
                 new Task("Study java", null),
                 new Task("Practice spring", null)
         ));
-        mockMvc.perform(get("/api/tasks"))
+        mockMvc.perform(get("/api/tasks")
+                        .principal(authentication()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].title").value("Study java"))
                 .andExpect(jsonPath("$[1].title").value("Practice spring"));
+
+        verify(taskService).findAll(EMAIl);
     }
     @Test
+    @WithMockUser(username = EMAIl)
     @DisplayName("view an existing task")
     void test_03() throws Exception{
-        when(taskService.findById(1L)).thenReturn(new Task("Study java", null));
+        when(taskService.findById(1L, EMAIl)).thenReturn(new Task("Study java", null));
 
-        mockMvc.perform(get("/api/tasks/1"))
+        mockMvc.perform(get("/api/tasks/1")
+                        .principal(authentication()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Study java"))
                 .andExpect(jsonPath("$.completed").value(false));
+
+        verify(taskService).findById(1L, EMAIl);
     }
     @Test
+    @WithMockUser(username = EMAIl)
     @DisplayName("Should return 404 when the task does not exist.")
     void test_04() throws Exception{
-        when(taskService.findById(99L)).thenThrow(new TaskNotFoundException(99L));
+        when(taskService.findById(99L, EMAIl)).thenThrow(new TaskNotFoundException(99L));
 
-        mockMvc.perform(get("/api/tasks/99"))
+        mockMvc.perform(get("/api/tasks/99")
+                        .principal(authentication()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").exists());
+
+        verify(taskService).findById(99L, EMAIl);
     }
     @Test
+    @WithMockUser(username = EMAIl)
     @DisplayName("Must reject a task with an empty title.")
     void test_05() throws Exception{
         mockMvc.perform(post("/api/tasks")
+                .principal(authentication())
                 .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -99,14 +125,16 @@ class TaskControllerTest {
         verifyNoInteractions(taskService);
     }
     @Test
+    @WithMockUser(username = EMAIl)
     @DisplayName("It should delete a task and return 204 No Content.")
     void test_06() throws Exception{
-        doNothing().when(taskService).delete(1L);
+        doNothing().when(taskService).delete(1L, EMAIl);
 
-        mockMvc.perform(delete("/api/tasks/1"))
+        mockMvc.perform(delete("/api/tasks/1")
+                        .principal(authentication()))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
-        verify(taskService).delete(1L);
+        verify(taskService).delete(1L, EMAIl);
     }
 
 }

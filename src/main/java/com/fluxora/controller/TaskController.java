@@ -7,6 +7,7 @@ import com.fluxora.service.TaskService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,46 +21,48 @@ public class TaskController {
         this.taskService = taskService;
     }
     @PostMapping
-    public ResponseEntity<TaskResponse> create(@Valid @RequestBody TaskRequest request){
-        Task task = taskService.create(request.title(), request.description());
+    public ResponseEntity<TaskResponse> create(@Valid @RequestBody TaskRequest request, Authentication authentication){
+        Task task = taskService.create(request.title(), request.description(), authentication.getName());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(TaskResponse.from(task));
     }
     @GetMapping
-    public ResponseEntity<List<TaskResponse>> findAll(){
-        List<TaskResponse> tasks = taskService.findAll()
+    public ResponseEntity<List<TaskResponse>> findAll(Authentication authentication){
+        List<TaskResponse> tasks = taskService.findAll(authentication.getName())
                 .stream()
                 .map(TaskResponse::from)
                 .toList();
         return ResponseEntity.ok(tasks);
     }
     @GetMapping("/{id}")
-    public ResponseEntity<TaskResponse> findById(@PathVariable Long id){
-        Task task = taskService.findById(id);
+    public ResponseEntity<TaskResponse> findById(@PathVariable Long id, Authentication authentication){
+        Task task = taskService.findById(id, authentication.getName());
 
         return ResponseEntity.ok(TaskResponse.from(task));
     }
     @PutMapping("/{id}")
-    public ResponseEntity<TaskResponse> update(@PathVariable Long id, @Valid @RequestBody TaskRequest request){
-        Task task = taskService.update(id, request.title(), request.description());
+    public ResponseEntity<TaskResponse> update(@PathVariable Long id,
+                                               @Valid @RequestBody TaskRequest request,
+                                               Authentication authentication){
+        Task task = taskService.update(id, request.title(), request.description(), authentication.getName());
 
         return ResponseEntity.ok(TaskResponse.from(task));
     }
     @PatchMapping("/{id}/complete")
-    public ResponseEntity<TaskResponse> complete(@PathVariable Long id){
-        Task task = taskService.complete(id);
+    public ResponseEntity<TaskResponse> complete(@PathVariable Long id, Authentication authentication){
+        Task task = taskService.complete(id, authentication.getName());
 
         return ResponseEntity.ok(TaskResponse.from(task));
     }
     @PatchMapping("/{id}/reopen")
-    public ResponseEntity<TaskResponse> reopen(@PathVariable Long id){
-        Task task = taskService.reopen(id);
+    public ResponseEntity<TaskResponse> reopen(@PathVariable Long id, Authentication authentication){
+        Task task = taskService.reopen(id, authentication.getName());
 
         return ResponseEntity.ok(TaskResponse.from(task));
     }
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id){
-        taskService.delete(id);
+    public ResponseEntity<Void> delete(@PathVariable Long id, Authentication authentication){
+        taskService.delete(id, authentication.getName());
 
         return ResponseEntity.noContent().build();
     }

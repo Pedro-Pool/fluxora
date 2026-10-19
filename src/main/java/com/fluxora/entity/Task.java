@@ -23,6 +23,10 @@ public class Task {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
     public Task() {}
 
     public Task(String title, String description){
@@ -30,6 +34,16 @@ public class Task {
         this.description = description;
         this.completed = false;
     }
+    public void assignTo(User user){
+        if (user == null){
+            throw new IllegalArgumentException("Task owner is mandatory");
+        }
+        this.user = user;
+    }
+    public User getUser(){
+        return user;
+    }
+
     @PrePersist
     protected void onCreate(){
         if (createdAt == null){

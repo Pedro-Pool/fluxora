@@ -1,15 +1,20 @@
 package com.fluxora.service;
 
 import com.fluxora.entity.Task;
+import com.fluxora.entity.User;
 import com.fluxora.repository.TaskRepository;
 import com.fluxora.exception.TaskNotFoundException;
+import com.fluxora.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -20,62 +25,92 @@ class TaskServiceTest {
     @Mock
     private TaskRepository taskRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private TaskService taskService;
 
+    private User user;
+
+    private final String email = "test@fluxora.com";
+
+    @BeforeEach
+    void setUp(){
+        user = new User("User test", email, "password-hash");
+        ReflectionTestUtils.setField(user, "id", 1L);
+    }
+
+
     @Test
-    @DisplayName("It must create a task using the provided data.")
+    @DisplayName("It must create a task using the provided data")
     void test_01(){
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Task createdTask = taskService.create("Study java", "practice tests");
+        Task createdTask = taskService.create("Study java", "practice tests", email);
 
         assertEquals("Study java", createdTask.getTitle());
         assertFalse(createdTask.isCompleted());
+        assertSame(user, createdTask.getUser());
 
+        verify(userRepository).findByEmail(email);
         verify(taskRepository).save(any(Task.class));
     }
     @Test
-    @DisplayName("It should find a task by ID.")
+    @DisplayName("Should find all tasks for user")
     void test_02(){
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findAllByUserId(user.getId())).thenReturn(List.of(new Task("Study java", null)));
+
+        List<Task> task = taskService.findAll(email);
+
+        assertEquals(1, task.size());
+        verify(taskRepository).findAllByUserId(user.getId());
+    }
+    @Test
+    @DisplayName("should find a task by ID for the user")
+    void test_03(){
         Task task = new Task("Study java", null);
 
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndUserId(1L, user.getId())).thenReturn(Optional.of(task));
 
-        Task foundTask = taskService.findById(1L);
+        Task foundTask = taskService.findById(1L, email);
 
         assertSame(task, foundTask);
-        verify(taskRepository).findById(1L);
+
+        verify(taskRepository).findByIdAndUserId(1L, user.getId());
     }
     @Test
-    @DisplayName("It must throw an exception when the task does not exist.")
-    void test_03(){
-        when(taskRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThrows(TaskNotFoundException.class, () -> taskService.findById(99L));
-
-        verify(taskRepository).findById(99L);
-    }
-    @Test
-    @DisplayName("Must complete an existing task")
+    @DisplayName("It should throw an exception when the task does not exist for the user.")
     void test_04(){
-        Task task = new Task("Study java", null);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndUserId(99L, user.getId())).thenReturn(Optional.empty());
 
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
-
-        Task completedTask = taskService.complete(1L);
-
-        assertTrue(completedTask.isCompleted());
-        verify(taskRepository).findById(1L);
+        assertThrows(TaskNotFoundException.class,() -> taskService.findById(99L, email));
     }
     @Test
-    @DisplayName("It must delete an existing task.")
+    @DisplayName("must complete the task")
     void test_05(){
         Task task = new Task("Study java", null);
 
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndUserId(1L, user.getId())).thenReturn(Optional.of(task));
 
-        taskService.delete(1L);
+        Task completedTask = taskService.complete(1L, email);
+
+        assertTrue(completedTask.isCompleted());
+    }
+    @Test
+    @DisplayName("should delete the task")
+    void test_06(){
+        Task task = new Task("Study java", null);
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndUserId(1L, user.getId())).thenReturn(Optional.of(task));
+
+        taskService.delete(1L, email);
 
         verify(taskRepository).delete(task);
     }
