@@ -114,4 +114,57 @@ class TaskServiceTest {
 
         verify(taskRepository).delete(task);
     }
+    @Test
+    @DisplayName("Should not allow a user to access another user's task")
+    void test_07(){
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndUserId(99L, user.getId())).thenReturn(Optional.empty());
+
+        assertThrows(TaskNotFoundException.class,() -> taskService.findById(99L, email));
+
+        verify(taskRepository).findByIdAndUserId(99L, user.getId());
+        verify(taskRepository, never()).delete(any(Task.class));
+    }
+    @Test
+    @DisplayName("Should not allow updating another user's task")
+    void test_08(){
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndUserId(99L, user.getId())).thenReturn(Optional.empty());
+
+        assertThrows(TaskNotFoundException.class,() ->
+                taskService.update(99L, "New Title","New Description",  email));
+
+        verify(taskRepository).findByIdAndUserId(99L, user.getId());
+    }
+    @Test
+    @DisplayName("Should not allow completing another user's task")
+    void test_09(){
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndUserId(99L, user.getId())).thenReturn(Optional.empty());
+
+        assertThrows(TaskNotFoundException.class,() -> taskService.complete(99L, email));
+
+        verify(taskRepository).findByIdAndUserId(99L, user.getId());
+    }
+    @Test
+    @DisplayName("Should not allow reopening another user's task")
+    void test_10(){
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndUserId(99L, user.getId())).thenReturn(Optional.empty());
+
+        assertThrows(TaskNotFoundException.class,() -> taskService.reopen(99L, email));
+
+        verify(taskRepository).findByIdAndUserId(99L, user.getId());
+    }
+    @Test
+    @DisplayName("Should not allow deleting another user's task")
+    void test_11(){
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndUserId(99L, user.getId())).thenReturn(Optional.empty());
+
+        assertThrows(TaskNotFoundException.class,() -> taskService.delete(99L, email));
+
+        verify(taskRepository).findByIdAndUserId(99L, user.getId());
+        verify(taskRepository, never()).delete(any(Task.class));
+    }
 }
