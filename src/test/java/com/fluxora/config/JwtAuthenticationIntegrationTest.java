@@ -81,7 +81,7 @@ public class JwtAuthenticationIntegrationTest {
     @Test
     @DisplayName("Should allow access when the token is valid")
     void test_04() throws Exception{
-        String email = "jwt-test-"+ UUID.randomUUID()+"fluxora.com";
+        String email = "jwt-test-"+ UUID.randomUUID()+"@fluxora.com";
 
         User user = userRepository.saveAndFlush(
                 new User("JWT Integration Test",
