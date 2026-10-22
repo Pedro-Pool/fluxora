@@ -91,7 +91,7 @@ public class JwtAuthenticationIntegrationTest {
         );
         try{
             String token = jwtService.generateToken(email);
-            mockMvc.perform(get("/api/tasks")
+            mockMvc.perform(get("/api/projects")
                     .header(
                             HttpHeaders.AUTHORIZATION,
                             "Bearer "+ token

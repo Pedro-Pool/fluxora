@@ -1,7 +1,9 @@
 package com.fluxora.service;
 
+import com.fluxora.entity.Project;
 import com.fluxora.entity.Task;
 import com.fluxora.entity.User;
+import com.fluxora.repository.ProjectRepository;
 import com.fluxora.repository.TaskRepository;
 import com.fluxora.exception.TaskNotFoundException;
 import com.fluxora.repository.UserRepository;
@@ -18,16 +20,22 @@ import java.util.List;
 public class TaskService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final ProjectRepository projectRepository;
 
-    public TaskService(TaskRepository taskRepository, UserRepository userRepository){
+    public TaskService(TaskRepository taskRepository,
+                       UserRepository userRepository,
+                       ProjectRepository projectRepository){
 
         this.userRepository = userRepository;
         this.taskRepository = taskRepository;
+        this.projectRepository = projectRepository;
     }
-    public List<Task> findAll(String email){
+    public List<Task> findAll(Long projectId, String email){
         User user = findUserByEmail(email);
 
-        return taskRepository.findAllByUserId(user.getId());
+        findProjectByIdAndUser(projectId, user.getId());
+
+        return taskRepository.findAllByProjectIdAndProjectUserId(projectId, user.getId());
     }
     public Task findById(Long id, String email){
         User user = findUserByEmail(email);
@@ -35,11 +43,12 @@ public class TaskService {
         return findTaskByIdAndUser(id, user.getId());
     }
     @Transactional
-    public Task create(String title, String description, String email){
+    public Task create(Long projectId, String title, String description, String email){
         User user = findUserByEmail(email);
+        Project project = findProjectByIdAndUser(projectId, user.getId());
 
         Task task = new Task(title, description);
-        task.assignTo(user);
+        task.assignTo(project);
 
         return taskRepository.save(task);
     }
@@ -77,8 +86,13 @@ public class TaskService {
                 HttpStatus.UNAUTHORIZED, "Authenticated user not found"
         ));
     }
+    private Project findProjectByIdAndUser(Long projectId, Long userId){
+        return projectRepository.findByIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Project not found"));
+    }
     private Task findTaskByIdAndUser(Long id, Long userId){
-        return taskRepository.findByIdAndUserId(id, userId)
+        return taskRepository.findByIdAndProjectUserId(id, userId)
                 .orElseThrow(() -> new TaskNotFoundException(id));
     }
 

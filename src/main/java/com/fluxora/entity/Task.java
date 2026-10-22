@@ -24,8 +24,8 @@ public class Task {
     private LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
 
     public Task() {}
 
@@ -34,14 +34,14 @@ public class Task {
         this.description = description;
         this.completed = false;
     }
-    public void assignTo(User user){
-        if (user == null){
-            throw new IllegalArgumentException("Task owner is mandatory");
+    public void assignTo(Project project){
+        if (project == null){
+            throw new IllegalArgumentException("Task project is mandatory");
         }
-        this.user = user;
+        this.project = project;
     }
-    public User getUser(){
-        return user;
+    public Project getProject(){
+        return project;
     }
 
     @PrePersist

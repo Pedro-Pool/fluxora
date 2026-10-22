@@ -3,6 +3,7 @@ package com.fluxora.controller;
 import com.fluxora.config.JwtAuthenticationFilter;
 import com.fluxora.entity.Task;
 import com.fluxora.exception.TaskNotFoundException;
+import com.fluxora.service.ProjectService;
 import com.fluxora.service.TaskService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,12 +27,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TaskControllerTest {
 
     private static final String EMAIl = "test@fluxora.com";
+    private static final Long PROJECT_ID = 1L;
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
     private TaskService taskService;
+
+    @MockitoBean
+    private ProjectService projectService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -46,9 +51,9 @@ class TaskControllerTest {
     void test_01() throws Exception{
         Task task = new Task("Study java", "Practice tests");
 
-        when(taskService.create("Study java", "Practice tests", EMAIl)).thenReturn(task);
+        when(taskService.create(PROJECT_ID, "Study java", "Practice tests", EMAIl)).thenReturn(task);
 
-        mockMvc.perform(post("/api/tasks")
+        mockMvc.perform(post("/api/projects/{projectId}/tasks", PROJECT_ID)
                 .principal(authentication())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
@@ -62,24 +67,25 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.description").value("Practice tests"))
                 .andExpect(jsonPath("$.completed").value(false));
 
-        verify(taskService).create("Study java", "Practice tests", EMAIl);
+        verify(taskService).create(PROJECT_ID,"Study java", "Practice tests", EMAIl);
     }
     @Test
     @WithMockUser(username = EMAIl)
     @DisplayName("Should list tasks and return 200 OK")
     void test_02() throws Exception{
-        when(taskService.findAll(EMAIl)).thenReturn(List.of(
+
+        when(taskService.findAll(PROJECT_ID, EMAIl)).thenReturn(List.of(
                 new Task("Study java", null),
                 new Task("Practice spring", null)
         ));
-        mockMvc.perform(get("/api/tasks")
+        mockMvc.perform(get("/api/projects/{projectId}/tasks", PROJECT_ID)
                         .principal(authentication()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].title").value("Study java"))
                 .andExpect(jsonPath("$[1].title").value("Practice spring"));
 
-        verify(taskService).findAll(EMAIl);
+        verify(taskService).findAll(PROJECT_ID, EMAIl);
     }
     @Test
     @WithMockUser(username = EMAIl)
@@ -112,7 +118,7 @@ class TaskControllerTest {
     @WithMockUser(username = EMAIl)
     @DisplayName("Must reject a task with an empty title.")
     void test_05() throws Exception{
-        mockMvc.perform(post("/api/tasks")
+        mockMvc.perform(post("/api/projects/{projectId}/tasks", PROJECT_ID)
                 .principal(authentication())
                 .contentType(MediaType.APPLICATION_JSON)
                         .content("""

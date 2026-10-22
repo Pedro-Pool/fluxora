@@ -13,34 +13,36 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/tasks")
+@RequestMapping("/api")
 public class TaskController {
     private final TaskService taskService;
 
     public TaskController(TaskService taskService){
         this.taskService = taskService;
     }
-    @PostMapping
-    public ResponseEntity<TaskResponse> create(@Valid @RequestBody TaskRequest request, Authentication authentication){
-        Task task = taskService.create(request.title(), request.description(), authentication.getName());
+    @PostMapping("/projects/{projectId}/tasks")
+    public ResponseEntity<TaskResponse> create(@PathVariable Long projectId,
+                                               @Valid @RequestBody TaskRequest request,
+                                               Authentication authentication){
+        Task task = taskService.create(projectId, request.title(), request.description(), authentication.getName());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(TaskResponse.from(task));
     }
-    @GetMapping
-    public ResponseEntity<List<TaskResponse>> findAll(Authentication authentication){
-        List<TaskResponse> tasks = taskService.findAll(authentication.getName())
+    @GetMapping("/projects/{projectId}/tasks")
+    public ResponseEntity<List<TaskResponse>> findAll(@PathVariable Long projectId, Authentication authentication){
+        List<TaskResponse> tasks = taskService.findAll(projectId, authentication.getName())
                 .stream()
                 .map(TaskResponse::from)
                 .toList();
         return ResponseEntity.ok(tasks);
     }
-    @GetMapping("/{id}")
+    @GetMapping("/tasks/{id}")
     public ResponseEntity<TaskResponse> findById(@PathVariable Long id, Authentication authentication){
         Task task = taskService.findById(id, authentication.getName());
 
         return ResponseEntity.ok(TaskResponse.from(task));
     }
-    @PutMapping("/{id}")
+    @PutMapping("/tasks/{id}")
     public ResponseEntity<TaskResponse> update(@PathVariable Long id,
                                                @Valid @RequestBody TaskRequest request,
                                                Authentication authentication){
@@ -48,19 +50,19 @@ public class TaskController {
 
         return ResponseEntity.ok(TaskResponse.from(task));
     }
-    @PatchMapping("/{id}/complete")
+    @PatchMapping("/tasks/{id}/complete")
     public ResponseEntity<TaskResponse> complete(@PathVariable Long id, Authentication authentication){
         Task task = taskService.complete(id, authentication.getName());
 
         return ResponseEntity.ok(TaskResponse.from(task));
     }
-    @PatchMapping("/{id}/reopen")
+    @PatchMapping("/tasks/{id}/reopen")
     public ResponseEntity<TaskResponse> reopen(@PathVariable Long id, Authentication authentication){
         Task task = taskService.reopen(id, authentication.getName());
 
         return ResponseEntity.ok(TaskResponse.from(task));
     }
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/tasks/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id, Authentication authentication){
         taskService.delete(id, authentication.getName());
 
