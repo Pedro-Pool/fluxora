@@ -1,8 +1,6 @@
 package com.fluxora.service;
 
-import com.fluxora.entity.Project;
-import com.fluxora.entity.Task;
-import com.fluxora.entity.User;
+import com.fluxora.entity.*;
 import com.fluxora.repository.ProjectRepository;
 import com.fluxora.repository.TaskRepository;
 import com.fluxora.exception.TaskNotFoundException;
@@ -13,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -43,22 +43,52 @@ public class TaskService {
         return findTaskByIdAndUser(id, user.getId());
     }
     @Transactional
-    public Task create(Long projectId, String title, String description, String email){
+    public Task create(Long projectId,
+                       String title,
+                       String description,
+                       TaskStatus status,
+                       TaskPriority priority,
+                       LocalDate dueDate,
+                       String email){
         User user = findUserByEmail(email);
         Project project = findProjectByIdAndUser(projectId, user.getId());
 
         Task task = new Task(title, description);
         task.assignTo(project);
+        task.updatePlanning(status, priority, dueDate);
+
+        if (status == TaskStatus.DONE){
+            task.completed();
+        }else if (status == TaskStatus.CANCELED){
+            task.cancel();
+        }
 
         return taskRepository.save(task);
     }
     @Transactional
-    public Task update(Long id, String title, String description, String email){
+    public Task update(Long id,
+                       String title,
+                       String description,
+                       TaskStatus status,
+                       TaskPriority priority,
+                       LocalDate dueDate,
+                       String email){
         User user = findUserByEmail(email);
-
         Task task = findTaskByIdAndUser(id, user.getId());
-        task.updateDetails(title, description);
 
+        task.updateDetails(title, description);
+        task.updatePlanning(status, priority, dueDate);
+
+        if (status == TaskStatus.DONE){
+            task.completed();
+        }else if (status == TaskStatus.CANCELED){
+            task.cancel();
+        } else if (status == TaskStatus.TODO || status == TaskStatus.IN_PROGRESS){
+            task.reopen();
+            if (status == TaskStatus.IN_PROGRESS){
+                task.updatePlanning(status, priority, dueDate);
+            }
+        }
         return task;
     }
     @Transactional
@@ -75,6 +105,14 @@ public class TaskService {
         task.reopen();
         return task;
     }
+    @Transactional
+    public Task cancel(Long id, String email){
+        User user = findUserByEmail(email);
+        Task task = findTaskByIdAndUser(id, user.getId());
+        task.cancel();
+        return task;
+    }
+
     @Transactional
     public void delete(Long id, String email){
         User user = findUserByEmail(email);

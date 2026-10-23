@@ -1,8 +1,6 @@
 package com.fluxora.service;
 
-import com.fluxora.entity.Project;
-import com.fluxora.entity.Task;
-import com.fluxora.entity.User;
+import com.fluxora.entity.*;
 import com.fluxora.repository.ProjectRepository;
 import com.fluxora.repository.TaskRepository;
 import com.fluxora.exception.TaskNotFoundException;
@@ -14,8 +12,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,7 +70,14 @@ class TaskServiceTest {
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Task createdTask = taskService.create(PROJECT_ID, "Study java", "practice tests", email);
+        Task createdTask = taskService.create(
+                PROJECT_ID,
+                "Study java",
+                "practice tests",
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                null,
+                email);
 
         assertEquals("Study java", createdTask.getTitle());
         assertFalse(createdTask.isCompleted());
@@ -171,7 +179,14 @@ class TaskServiceTest {
         when(taskRepository.findByIdAndProjectUserId(99L, USER_ID)).thenReturn(Optional.empty());
 
         assertThrows(TaskNotFoundException.class,() ->
-                taskService.update(99L, "New Title","New Description",  email));
+                taskService.update(
+                        99L,
+                        "New Title",
+                        "New Description",
+                        TaskStatus.TODO,
+                        TaskPriority.MEDIUM,
+                        null,
+                        email));
 
         verify(taskRepository).findByIdAndProjectUserId(99L, USER_ID);
     }
@@ -211,5 +226,131 @@ class TaskServiceTest {
 
         verify(taskRepository).findByIdAndProjectUserId(99L, USER_ID);
         verify(taskRepository, never()).delete(any(Task.class));
+    }
+    @Test
+    @DisplayName("Should create a task with default planning values")
+    void test_12(){
+        mockAuthenticatedUser();
+        mockOwnerProject();
+
+        when(taskRepository.save(any(Task.class))).thenAnswer(
+                invocation -> invocation.getArgument(0));
+
+        Task createdTask = taskService.create(
+                PROJECT_ID,
+                "Study java",
+                "practice tests",
+                null,
+                null,
+                null,
+                email);
+
+        assertEquals(TaskStatus.TODO, createdTask.getStatus());
+        assertEquals(TaskPriority.MEDIUM, createdTask.getPriority());
+        assertNull(createdTask.getDueDate());
+        assertNull(createdTask.getCompletedAt());
+    }
+    @Test
+    @DisplayName("Should create a completed task with completedAt")
+    void test_13(){
+        mockAuthenticatedUser();
+        mockOwnerProject();
+
+        when(taskRepository.save(any(Task.class))).thenAnswer(
+                invocation -> invocation.getArgument(0));
+
+        Task createdTask = taskService.create(
+                PROJECT_ID,
+                "Study java",
+                "practice tests",
+                TaskStatus.DONE,
+                TaskPriority.HIGH,
+                LocalDate.of(2026, 10, 30),
+                email);
+
+        assertEquals(TaskStatus.DONE, createdTask.getStatus());
+        assertEquals(TaskPriority.HIGH, createdTask.getPriority());
+        assertEquals(LocalDate.of(2026, 10, 30), createdTask.getDueDate());
+        assertNotNull(createdTask.getCompletedAt());
+    }
+    @Test
+    @DisplayName("Should not find task when the project does not belong to the user")
+    void test_14(){
+        mockAuthenticatedUser();
+
+        when(projectRepository.findByIdAndUserId(PROJECT_ID, USER_ID)).thenReturn(Optional.empty());
+
+        assertThrows(ResponseStatusException.class,() -> taskService.findAll(PROJECT_ID, email));
+
+        verify(taskRepository, never()).findByIdAndProjectUserId(PROJECT_ID, USER_ID);
+    }
+    @Test
+    @DisplayName("Should throws unathorized when the authenticated user does not exist")
+    void test_15(){
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,() -> taskService.findById(1L, email));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+    }
+    @Test
+    @DisplayName("Should reopen a task and clear completedAt")
+    void test_16(){
+        Project taskProject = project;
+
+        Task existingTask = new Task("Completed task", "description");
+        existingTask.assignTo(taskProject);
+        existingTask.completed();
+
+        assertNotNull(existingTask.getCompletedAt());
+
+        mockAuthenticatedUser();
+        when(taskRepository.findByIdAndProjectUserId(1L, USER_ID)).thenReturn(Optional.of(existingTask));
+
+        Task taskReopen = taskService.reopen(1L, email);
+
+        assertEquals(TaskStatus.TODO, taskReopen.getStatus());
+        assertNull(taskReopen.getCompletedAt());
+    }
+    @Test
+    @DisplayName("Should cancel a task and clear clopletedAt")
+    void test_17(){
+        Task existingTask = new Task("Completed task", "description");
+        existingTask.assignTo(project);
+        existingTask.completed();
+
+        mockAuthenticatedUser();
+        when(taskRepository.findByIdAndProjectUserId(1L, USER_ID)).thenReturn(Optional.of(existingTask));
+
+        Task canceledTask = taskService.cancel(1L, email);
+
+        assertEquals(TaskStatus.CANCELED, canceledTask.getStatus());
+        assertNull(canceledTask.getCompletedAt());
+    }
+    @Test
+    @DisplayName("Should update a task to DONE and set completedAt")
+    void test_18(){
+        Task existingTask = new Task("Old title", "Old description");
+        existingTask.assignTo(project);
+
+        mockAuthenticatedUser();
+        when(taskRepository.findByIdAndProjectUserId(1L, USER_ID)).thenReturn(Optional.of(existingTask));
+
+        Task updatedTask = taskService.update(
+                1L,
+                "New title",
+                "New description",
+                TaskStatus.DONE,
+                TaskPriority.URGENT,
+                LocalDate.of(2026, 10, 30),
+                email
+        );
+        assertEquals("New title", updatedTask.getTitle());
+        assertEquals("New description", updatedTask.getDescription());
+        assertEquals(TaskStatus.DONE, updatedTask.getStatus());
+        assertEquals(TaskPriority.URGENT, updatedTask.getPriority());
+        assertEquals(LocalDate.of(2026, 10, 30), updatedTask.getDueDate());
+        assertNotNull(updatedTask.getCompletedAt());
     }
 }

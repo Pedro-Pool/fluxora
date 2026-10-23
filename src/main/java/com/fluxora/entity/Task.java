@@ -1,6 +1,8 @@
 package com.fluxora.entity;
 
 import jakarta.persistence.*;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -17,11 +19,24 @@ public class Task {
     @Column( length = 1000)
     private String description;
 
-    @Column(nullable = false)
-    private boolean completed = false;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TaskStatus status = TaskStatus.TODO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TaskPriority priority = TaskPriority.MEDIUM;
+
+    private LocalDate dueDate;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(nullable = false)
+    private LocalDateTime updateAt;
+
+    @Column
+    private LocalDateTime completedAt;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "project_id", nullable = false)
@@ -32,7 +47,8 @@ public class Task {
     public Task(String title, String description){
         this.title = requireTitle(title);
         this.description = description;
-        this.completed = false;
+        this.status = TaskStatus.TODO;
+        this.priority = TaskPriority.MEDIUM;
     }
     public void assignTo(Project project){
         if (project == null){
@@ -40,26 +56,49 @@ public class Task {
         }
         this.project = project;
     }
-    public Project getProject(){
-        return project;
-    }
 
     @PrePersist
     protected void onCreate(){
+        LocalDateTime now = LocalDateTime.now();
         if (createdAt == null){
             createdAt = LocalDateTime.now();
         }
+        updateAt = now;
     }
-    public void completed(){
-        this.completed = true;
-    }
-    public void reopen(){
-        this.completed = false;
+    @PreUpdate
+    protected void onUpdate(){
+        updateAt = LocalDateTime.now();
     }
     public void updateDetails(String title, String description){
         this.title = requireTitle(title);
         this.description = description;
     }
+    public void updatePlanning(TaskStatus status, TaskPriority priority, LocalDate dueDate){
+        if (status != null){
+            this.status = status;
+        }
+        if (priority != null){
+            this.priority = priority;
+        }
+        this.dueDate = dueDate;
+    }
+
+    public void completed(){
+        this.status = TaskStatus.DONE;
+        this.completedAt = LocalDateTime.now();
+    }
+    public void reopen(){
+        this.status = TaskStatus.TODO;
+        this.completedAt = null;
+    }
+    public void cancel(){
+        this.status = TaskStatus.CANCELED;
+        this.completedAt = null;
+    }
+    public boolean isCompleted(){
+        return this.status == TaskStatus.DONE;
+    }
+
 
     private String requireTitle(String title){
         if (title == null || title.isBlank()){
@@ -84,12 +123,35 @@ public class Task {
     public String getDescription() {
         return description;
     }
-    public boolean isCompleted(){
-        return completed;
+
+    public TaskStatus getStatus(){
+        return status;
     }
+
+    public TaskPriority getPriority(){
+        return priority;
+    }
+
+    public LocalDate getDueDate(){
+        return dueDate;
+    }
+
     public LocalDateTime getCreatedAt(){
         return  createdAt;
     }
+
+    public LocalDateTime getUpdateAt(){
+        return updateAt;
+    }
+
+    public LocalDateTime getCompletedAt(){
+        return completedAt;
+    }
+
+    public Project getProject(){
+        return project;
+    }
+
     @Override
     public boolean equals(Object object){
         if (this == object) {

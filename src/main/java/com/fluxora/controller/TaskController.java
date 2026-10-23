@@ -24,7 +24,14 @@ public class TaskController {
     public ResponseEntity<TaskResponse> create(@PathVariable Long projectId,
                                                @Valid @RequestBody TaskRequest request,
                                                Authentication authentication){
-        Task task = taskService.create(projectId, request.title(), request.description(), authentication.getName());
+        Task task = taskService.create(
+                projectId,
+                request.title(),
+                request.description(),
+                request.status(),
+                request.priority(),
+                request.dueDate(),
+                authentication.getName());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(TaskResponse.from(task));
     }
@@ -46,7 +53,14 @@ public class TaskController {
     public ResponseEntity<TaskResponse> update(@PathVariable Long id,
                                                @Valid @RequestBody TaskRequest request,
                                                Authentication authentication){
-        Task task = taskService.update(id, request.title(), request.description(), authentication.getName());
+        Task task = taskService.update(
+                id,
+                request.title(),
+                request.description(),
+                request.status(),
+                request.priority(),
+                request.dueDate(),
+                authentication.getName());
 
         return ResponseEntity.ok(TaskResponse.from(task));
     }
@@ -59,6 +73,12 @@ public class TaskController {
     @PatchMapping("/tasks/{id}/reopen")
     public ResponseEntity<TaskResponse> reopen(@PathVariable Long id, Authentication authentication){
         Task task = taskService.reopen(id, authentication.getName());
+
+        return ResponseEntity.ok(TaskResponse.from(task));
+    }
+    @PatchMapping("/tasks/{id}/cancel")
+    public ResponseEntity<TaskResponse> cancel(@PathVariable Long id, Authentication authentication){
+        Task task = taskService.cancel(id, authentication.getName());
 
         return ResponseEntity.ok(TaskResponse.from(task));
     }

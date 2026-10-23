@@ -1,8 +1,6 @@
 package com.fluxora.controller;
 
-import com.fluxora.entity.Project;
-import com.fluxora.entity.Task;
-import com.fluxora.entity.User;
+import com.fluxora.entity.*;
 import com.fluxora.repository.ProjectRepository;
 import com.fluxora.repository.TaskRepository;
 import com.fluxora.repository.UserRepository;
@@ -19,9 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
-
 
 import java.util.UUID;
 
@@ -73,7 +69,14 @@ public class TaskAuthorizationIntegrationTest {
         tokenA = jwtService.generateToken(userA.getEmail());
         tokenB = jwtService.generateToken(userB.getEmail());
 
-        taskA = taskService.create(projectA.getId(), "Task private A", "test", userA.getEmail());
+        taskA = taskService.create(
+                projectA.getId(),
+                "Task private A",
+                "test",
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                null,
+                userA.getEmail());
     }
     @AfterEach
     void tearDown(){
@@ -153,5 +156,30 @@ public class TaskAuthorizationIntegrationTest {
                 .andExpect(status().isNotFound());
 
         assertTrue(taskRepository.findByIdAndProjectUserId(taskA.getId(), userA.getId()).isPresent());
+    }
+    @Test
+    @DisplayName("A user cannot cancel another user's task")
+    void test_07() throws Exception{
+        mockMvc.perform(patch("/api/tasks/{id}/cancel", taskA.getId())
+                .header(HttpHeaders.AUTHORIZATION,
+                        "Bearer "+ tokenB))
+                .andExpect(status().isNotFound());
+
+        assertTrue(taskRepository.findByIdAndProjectUserId(taskA.getId(), userA.getId()).isPresent());
+    }
+    @Test
+    @DisplayName("A request without a token must return 401")
+    void test_08() throws Exception{
+        mockMvc.perform(get("/api/tasks/{id}", taskA.getId()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("A request with an invalid token must return 401")
+    void test_09() throws Exception{
+        mockMvc.perform(get("/api/tasks/{id}", taskA.getId())
+                .header(HttpHeaders.AUTHORIZATION,
+                        "Bearer invalid-token"))
+                .andExpect(status().isUnauthorized());
     }
 }
