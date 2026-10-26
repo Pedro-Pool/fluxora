@@ -5,6 +5,7 @@ import com.fluxora.entity.Task;
 import com.fluxora.entity.TaskPriority;
 import com.fluxora.entity.TaskStatus;
 import com.fluxora.exception.TaskNotFoundException;
+import com.fluxora.service.CategoryService;
 import com.fluxora.service.ProjectService;
 import com.fluxora.service.TaskService;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +37,9 @@ class TaskControllerTest {
 
     @MockitoBean
     private TaskService taskService;
+
+    @MockitoBean
+    private CategoryService categoryService;
 
     @MockitoBean
     private ProjectService projectService;

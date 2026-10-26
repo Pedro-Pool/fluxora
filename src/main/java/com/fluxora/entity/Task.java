@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 @Entity
 @Table(name = "tasks")
@@ -41,6 +43,12 @@ public class Task {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
+
+    @ManyToMany
+    @JoinTable(name = "task_categories", joinColumns = @JoinColumn(name = "task_id"),
+    inverseJoinColumns = @JoinColumn(name = "category_id"),
+    uniqueConstraints = @UniqueConstraint(columnNames = {"task_id", "category_id"}))
+    private Set<Category> categories = new HashSet<>();
 
     public Task() {}
 
@@ -97,6 +105,30 @@ public class Task {
     }
     public boolean isCompleted(){
         return this.status == TaskStatus.DONE;
+    }
+
+    public Set<Category> getCategories(){
+        return Set.copyOf(categories);
+    }
+    public void addCategory(Category category){
+        if (category == null){
+            throw new IllegalArgumentException("Category is mandatory");
+        }
+        categories.add(category);
+    }
+
+    public void removeCategory(Category category){
+        categories.remove(category);
+    }
+    public void replaceCategories(Set<Category> categories){
+        if (categories == null){
+            throw new IllegalArgumentException("Categories are mandatory");
+        }
+        if (categories.contains(null)){
+            throw new IllegalArgumentException("Category cannot be null");
+        }
+        this.categories.clear();
+        this.categories.addAll(categories);
     }
 
 

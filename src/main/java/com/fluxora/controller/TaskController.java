@@ -3,6 +3,7 @@ package com.fluxora.controller;
 import com.fluxora.dto.TaskRequest;
 import com.fluxora.dto.TaskResponse;
 import com.fluxora.entity.Task;
+import com.fluxora.service.CategoryService;
 import com.fluxora.service.TaskService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -16,10 +17,13 @@ import java.util.List;
 @RequestMapping("/api")
 public class TaskController {
     private final TaskService taskService;
+    private final CategoryService categoryService;
 
-    public TaskController(TaskService taskService){
+    public TaskController(TaskService taskService, CategoryService categoryService) {
         this.taskService = taskService;
+        this.categoryService = categoryService;
     }
+
     @PostMapping("/projects/{projectId}/tasks")
     public ResponseEntity<TaskResponse> create(@PathVariable Long projectId,
                                                @Valid @RequestBody TaskRequest request,
@@ -85,6 +89,24 @@ public class TaskController {
     @DeleteMapping("/tasks/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id, Authentication authentication){
         taskService.delete(id, authentication.getName());
+
+        return ResponseEntity.noContent().build();
+    }
+    @PutMapping("/tasks/{tasksId}/categories/{categoryId}")
+    public ResponseEntity<Void> addCategory(
+            @PathVariable Long tasksId,
+            @PathVariable Long categoryId,
+            Authentication authentication){
+        categoryService.addToTask(tasksId, categoryId, authentication.getName());
+
+        return ResponseEntity.noContent().build();
+    }
+    @DeleteMapping("/tasks/{tasksId}/categories/{categoryId}")
+    public ResponseEntity<Void> removeCategory(
+            @PathVariable Long tasksId,
+            @PathVariable Long categoryId,
+            Authentication authentication){
+        categoryService.removeFromTask(tasksId, categoryId, authentication.getName());
 
         return ResponseEntity.noContent().build();
     }
