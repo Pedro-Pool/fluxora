@@ -3,14 +3,18 @@ package com.fluxora.controller;
 import com.fluxora.dto.TaskRequest;
 import com.fluxora.dto.TaskResponse;
 import com.fluxora.entity.Task;
+import com.fluxora.entity.TaskPriority;
+import com.fluxora.entity.TaskStatus;
 import com.fluxora.service.CategoryService;
 import com.fluxora.service.TaskService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -40,8 +44,24 @@ public class TaskController {
         return ResponseEntity.status(HttpStatus.CREATED).body(TaskResponse.from(task));
     }
     @GetMapping("/projects/{projectId}/tasks")
-    public ResponseEntity<List<TaskResponse>> findAll(@PathVariable Long projectId, Authentication authentication){
-        List<TaskResponse> tasks = taskService.findAll(projectId, authentication.getName())
+    public ResponseEntity<List<TaskResponse>> findAll(
+            @PathVariable Long projectId,
+            @RequestParam(required = false) TaskStatus status,
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueDateFrom,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueDateTo,
+            Authentication authentication
+    ){
+        List<TaskResponse> tasks = taskService.findAll(
+                projectId,
+                authentication.getName(),
+                status,
+                priority,
+                dueDateFrom,
+                dueDateTo
+                )
                 .stream()
                 .map(TaskResponse::from)
                 .toList();

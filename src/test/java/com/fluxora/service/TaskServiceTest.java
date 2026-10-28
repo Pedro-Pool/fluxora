@@ -93,15 +93,34 @@ class TaskServiceTest {
         mockOwnerProject();
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findAllByProjectIdAndProjectUserId(PROJECT_ID, user.getId()))
+        when(taskRepository.findAllWithFilters(
+                PROJECT_ID,
+                user.getId(),
+                null,
+                null,
+                null,
+                null
+                ))
                 .thenReturn(List.of(new Task("Study java", null)));
 
-        List<Task> task = taskService.findAll(PROJECT_ID, email);
+        List<Task> task = taskService.findAll(
+                PROJECT_ID,
+                email,
+                null,
+                null,
+                null,
+                null);
 
         assertEquals(1, task.size());
         assertEquals("Study java", task.get(0).getTitle());
 
-        verify(taskRepository).findAllByProjectIdAndProjectUserId(PROJECT_ID, USER_ID);
+        verify(taskRepository).findAllWithFilters(
+                PROJECT_ID,
+                USER_ID,
+                null,
+                null,
+                null,
+                null);
     }
     @Test
     @DisplayName("should find a task by ID for the user")
@@ -280,12 +299,18 @@ class TaskServiceTest {
 
         when(projectRepository.findByIdAndUserId(PROJECT_ID, USER_ID)).thenReturn(Optional.empty());
 
-        assertThrows(ResponseStatusException.class,() -> taskService.findAll(PROJECT_ID, email));
+        assertThrows(ResponseStatusException.class,() -> taskService.findAll(
+                PROJECT_ID,
+                email,
+                null,
+                null,
+                null,
+                null));
 
         verify(taskRepository, never()).findByIdAndProjectUserId(PROJECT_ID, USER_ID);
     }
     @Test
-    @DisplayName("Should throws unathorized when the authenticated user does not exist")
+    @DisplayName("Should throws unauthorized when the authenticated user does not exist")
     void test_15(){
         when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
 
@@ -314,7 +339,7 @@ class TaskServiceTest {
         assertNull(taskReopen.getCompletedAt());
     }
     @Test
-    @DisplayName("Should cancel a task and clear clopletedAt")
+    @DisplayName("Should cancel a task and clear completedAt")
     void test_17(){
         Task existingTask = new Task("Completed task", "description");
         existingTask.assignTo(project);
@@ -353,4 +378,167 @@ class TaskServiceTest {
         assertEquals(LocalDate.of(2026, 10, 30), updatedTask.getDueDate());
         assertNotNull(updatedTask.getCompletedAt());
     }
+    @Test
+    @DisplayName("Should filter tasks by status")
+    void test_19(){
+        mockAuthenticatedUser();
+        mockOwnerProject();
+
+        when(taskRepository.findAllWithFilters(
+                PROJECT_ID,
+                USER_ID,
+                TaskStatus.IN_PROGRESS,
+                null,
+                null,
+                null)).thenReturn(List.of(new Task("Task in progress", null)));
+
+        List<Task> tasks = taskService.findAll(
+                PROJECT_ID,
+                email,
+                TaskStatus.IN_PROGRESS,
+                null,
+                null,
+                null);
+
+        assertEquals(1, tasks.size());
+        assertEquals("Task in progress", tasks.get(0).getTitle());
+
+        verify(taskRepository).findAllWithFilters(
+                PROJECT_ID,
+                USER_ID,
+                TaskStatus.IN_PROGRESS,
+                null,
+                null,
+                null
+        );
+    }
+    @Test
+    @DisplayName("Should filter tasks by priority")
+    void test_20(){
+        mockAuthenticatedUser();
+        mockOwnerProject();
+
+        when(taskRepository.findAllWithFilters(
+                PROJECT_ID,
+                USER_ID,
+                null,
+                TaskPriority.HIGH,
+                null,
+                null)).thenReturn(List.of(new Task("High Task", null)));
+
+        List<Task> tasks = taskService.findAll(
+                PROJECT_ID,
+                email,
+                null,
+                TaskPriority.HIGH,
+                null,
+                null);
+
+        assertEquals(1, tasks.size());
+        assertEquals("High Task", tasks.get(0).getTitle());
+
+        verify(taskRepository).findAllWithFilters(
+                PROJECT_ID,
+                USER_ID,
+                null,
+                TaskPriority.HIGH,
+                null,
+                null
+        );
+    }
+    @Test
+    @DisplayName("Should filter tasks by due date range")
+    void test_21(){
+        mockAuthenticatedUser();
+        mockOwnerProject();
+
+        LocalDate from = LocalDate.of(2026, 10, 1);
+        LocalDate to = LocalDate.of(2026, 10, 31);
+
+        when(taskRepository.findAllWithFilters(
+                PROJECT_ID,
+                USER_ID,
+                null,
+                null,
+                from,
+                to)).thenReturn(List.of(new Task("October Task", null)));
+
+        List<Task> tasks = taskService.findAll(
+                PROJECT_ID,
+                email,
+                null,
+                null,
+                from,
+                to);
+
+        assertEquals(1, tasks.size());
+
+        verify(taskRepository).findAllWithFilters(
+                PROJECT_ID,
+                USER_ID,
+                null,
+                null,
+                from,
+                to
+        );
+    }
+    @Test
+    @DisplayName("Should combine status, priority and due date filters")
+    void test_22(){
+        mockAuthenticatedUser();
+        mockOwnerProject();
+
+        LocalDate from = LocalDate.of(2026, 10, 1);
+        LocalDate to = LocalDate.of(2026, 10, 31);
+
+        when(taskRepository.findAllWithFilters(
+                PROJECT_ID,
+                USER_ID,
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.URGENT,
+                from,
+                to)).thenReturn(List.of(new Task("Urgent Task", null)));
+
+        List<Task> tasks = taskService.findAll(
+                PROJECT_ID,
+                email,
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.URGENT,
+                from,
+                to);
+
+        assertEquals(1, tasks.size());
+
+        verify(taskRepository).findAllWithFilters(
+                PROJECT_ID,
+                USER_ID,
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.URGENT,
+                from,
+                to
+        );
+    }
+    @Test
+    @DisplayName("Should reject an invalid due date range")
+    void test_23(){
+        mockAuthenticatedUser();
+        mockOwnerProject();
+
+        LocalDate from = LocalDate.of(2026, 10, 31);
+        LocalDate to = LocalDate.of(2026, 10, 1);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> taskService.findAll(
+                        PROJECT_ID,
+                        email,
+                        null,
+                        null,
+                        from,
+                        to));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+
+        verify(taskRepository, never()).findAllWithFilters(any(), any(), any(), any(), any(), any());
+    }
+
 }

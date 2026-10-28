@@ -19,6 +19,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.mockito.Mockito.*;
@@ -95,7 +96,13 @@ class TaskControllerTest {
     @DisplayName("Should list tasks and return 200 OK")
     void test_02() throws Exception{
 
-        when(taskService.findAll(PROJECT_ID, EMAIL)).thenReturn(List.of(
+        when(taskService.findAll(
+                PROJECT_ID,
+                EMAIL,
+                null,
+                null,
+                null,
+                null)).thenReturn(List.of(
                 new Task("Study java", null),
                 new Task("Practice spring", null)
         ));
@@ -106,7 +113,13 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$[0].title").value("Study java"))
                 .andExpect(jsonPath("$[1].title").value("Practice spring"));
 
-        verify(taskService).findAll(PROJECT_ID, EMAIL);
+        verify(taskService).findAll(
+                PROJECT_ID,
+                EMAIL,
+                null,
+                null,
+                null,
+                null);
     }
     @Test
     @WithMockUser(username = EMAIL)
@@ -302,6 +315,41 @@ class TaskControllerTest {
                 TaskPriority.MEDIUM,
                 null,
                 EMAIL
+        );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should pass task filters to the service")
+    void test_13() throws Exception{
+        LocalDate from = LocalDate.of(2026, 10, 1);
+        LocalDate to = LocalDate.of(2026, 10, 31);
+
+        when(taskService.findAll(
+                PROJECT_ID,
+                EMAIL,
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.URGENT,
+                from,
+                to
+        )).thenReturn(List.of(new Task("Filtered Task", null)));
+
+        mockMvc.perform(get("/api/projects/{projectId}/tasks", PROJECT_ID)
+                    .principal(authentication())
+                    .param("status", "IN_PROGRESS")
+                    .param("priority", "URGENT")
+                    .param("dueDateFrom", "2026-10-01")
+                    .param("dueDateTo", "2026-10-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].title").value("Filtered Task"));
+
+        verify(taskService).findAll(
+                PROJECT_ID,
+                EMAIL,
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.URGENT,
+                from,
+                to
         );
     }
 }

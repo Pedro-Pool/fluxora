@@ -29,12 +29,29 @@ public class TaskService {
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
     }
-    public List<Task> findAll(Long projectId, String email){
+    public List<Task> findAll(
+            Long projectId,
+            String email,
+            TaskStatus status,
+            TaskPriority priority,
+            LocalDate dueDateFrom,
+            LocalDate dueDateTo){
         User user = findUserByEmail(email);
 
         findProjectByIdAndUser(projectId, user.getId());
 
-        return taskRepository.findAllByProjectIdAndProjectUserId(projectId, user.getId());
+        if (dueDateFrom != null && dueDateTo != null && dueDateFrom.isAfter(dueDateTo)){
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "The start date must be before or equals to the end date");
+        }
+
+        return taskRepository.findAllWithFilters(
+                projectId,
+                user.getId(),
+                status,
+                priority,
+                dueDateFrom,
+                dueDateTo);
     }
     public Task findById(Long id, String email){
         User user = findUserByEmail(email);
