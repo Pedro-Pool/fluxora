@@ -12,6 +12,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -97,29 +101,39 @@ class TaskControllerTest {
     void test_02() throws Exception{
 
         when(taskService.findAll(
-                PROJECT_ID,
-                EMAIL,
-                null,
-                null,
-                null,
-                null)).thenReturn(List.of(
-                new Task("Study java", null),
-                new Task("Practice spring", null)
-        ));
+                eq(PROJECT_ID),
+                eq(EMAIL),
+                isNull(),
+                isNull(),
+                isNull(),
+                isNull(),
+                any(Pageable.class)
+                ))
+                .thenAnswer(invocation -> {Pageable pageable = invocation.getArgument(6);
+                    return new PageImpl<>(
+                            List.of(
+                                    new Task("Study java", null),
+                                    new Task("Practice spring", null)
+                            ),
+                            pageable,
+                            2
+                    );
+                });
         mockMvc.perform(get("/api/projects/{projectId}/tasks", PROJECT_ID)
                         .principal(authentication()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].title").value("Study java"))
-                .andExpect(jsonPath("$[1].title").value("Practice spring"));
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].title").value("Study java"))
+                .andExpect(jsonPath("$.content[1].title").value("Practice spring"));
 
         verify(taskService).findAll(
-                PROJECT_ID,
-                EMAIL,
-                null,
-                null,
-                null,
-                null);
+                eq(PROJECT_ID),
+                eq(EMAIL),
+                isNull(),
+                isNull(),
+                isNull(),
+                isNull(),
+                any(Pageable.class));
     }
     @Test
     @WithMockUser(username = EMAIL)
@@ -324,14 +338,20 @@ class TaskControllerTest {
         LocalDate from = LocalDate.of(2026, 10, 1);
         LocalDate to = LocalDate.of(2026, 10, 31);
 
+        Pageable pageable = PageRequest.of(0, 10, Sort.Direction.DESC, "createdAt");
+
         when(taskService.findAll(
                 PROJECT_ID,
                 EMAIL,
                 TaskStatus.IN_PROGRESS,
                 TaskPriority.URGENT,
                 from,
-                to
-        )).thenReturn(List.of(new Task("Filtered Task", null)));
+                to,
+                pageable
+        )).thenReturn(new PageImpl<>(
+                List.of(new Task("Filtered Task", null)),
+                pageable,
+                1));
 
         mockMvc.perform(get("/api/projects/{projectId}/tasks", PROJECT_ID)
                     .principal(authentication())
@@ -340,16 +360,17 @@ class TaskControllerTest {
                     .param("dueDateFrom", "2026-10-01")
                     .param("dueDateTo", "2026-10-31"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].title").value("Filtered Task"));
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Filtered Task"));
 
         verify(taskService).findAll(
-                PROJECT_ID,
-                EMAIL,
-                TaskStatus.IN_PROGRESS,
-                TaskPriority.URGENT,
-                from,
-                to
+                eq(PROJECT_ID),
+                eq(EMAIL),
+                eq(TaskStatus.IN_PROGRESS),
+                eq(TaskPriority.URGENT),
+                eq(from),
+                eq(to),
+                any(Pageable.class)
         );
     }
 }

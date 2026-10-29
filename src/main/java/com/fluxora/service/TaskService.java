@@ -5,6 +5,8 @@ import com.fluxora.repository.ProjectRepository;
 import com.fluxora.repository.TaskRepository;
 import com.fluxora.exception.TaskNotFoundException;
 import com.fluxora.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,13 +31,14 @@ public class TaskService {
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
     }
-    public List<Task> findAll(
+    public Page<Task> findAll(
             Long projectId,
             String email,
             TaskStatus status,
             TaskPriority priority,
             LocalDate dueDateFrom,
-            LocalDate dueDateTo){
+            LocalDate dueDateTo,
+            Pageable pageable){
         User user = findUserByEmail(email);
 
         findProjectByIdAndUser(projectId, user.getId());
@@ -51,7 +54,8 @@ public class TaskService {
                 status,
                 priority,
                 dueDateFrom,
-                dueDateTo);
+                dueDateTo,
+                pageable);
     }
     public Task findById(Long id, String email){
         User user = findUserByEmail(email);

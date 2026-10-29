@@ -142,7 +142,7 @@ public class TaskAuthorizationIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION,
                                 "Bearer " + tokenA))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].title")
+                .andExpect(jsonPath("$.content[0].title")
                         .value("Task private A"));
     }
 

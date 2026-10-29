@@ -8,14 +8,18 @@ import com.fluxora.entity.TaskStatus;
 import com.fluxora.service.CategoryService;
 import com.fluxora.service.TaskService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -44,7 +48,7 @@ public class TaskController {
         return ResponseEntity.status(HttpStatus.CREATED).body(TaskResponse.from(task));
     }
     @GetMapping("/projects/{projectId}/tasks")
-    public ResponseEntity<List<TaskResponse>> findAll(
+    public ResponseEntity<Page<TaskResponse>> findAll(
             @PathVariable Long projectId,
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) TaskPriority priority,
@@ -52,19 +56,32 @@ public class TaskController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueDateFrom,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueDateTo,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction,
             Authentication authentication
     ){
-        List<TaskResponse> tasks = taskService.findAll(
+        if(page < 0 || size < 1){
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Page must be non-negative and size must be greater than zero");
+        }
+
+        Sort.Direction sortDirection = Sort.Direction.fromString(direction);
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
+
+        Page<TaskResponse> tasks = taskService.findAll(
                 projectId,
                 authentication.getName(),
                 status,
                 priority,
                 dueDateFrom,
-                dueDateTo
+                dueDateTo,
+                pageable
                 )
-                .stream()
-                .map(TaskResponse::from)
-                .toList();
+                .map(TaskResponse::from);
         return ResponseEntity.ok(tasks);
     }
     @GetMapping("/tasks/{id}")

@@ -12,6 +12,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
@@ -39,15 +43,19 @@ class TaskServiceTest {
 
     private User user;
     private Project project;
+    private Pageable pageable;
 
     private final String email = "test@fluxora.com";
     private static final Long USER_ID = 1L;
     private static final Long PROJECT_ID = 10L;
 
+
     @BeforeEach
     void setUp(){
         user = new User("User test", email, "password-hash");
         ReflectionTestUtils.setField(user, "id", USER_ID);
+
+        pageable = PageRequest.of(0, 10);
 
         project = new Project("Project test", "project description");
         ReflectionTestUtils.setField(project, "id", PROJECT_ID);
@@ -92,6 +100,8 @@ class TaskServiceTest {
         mockAuthenticatedUser();
         mockOwnerProject();
 
+        Task task = new Task("Study java", null);
+
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(taskRepository.findAllWithFilters(
                 PROJECT_ID,
@@ -99,20 +109,22 @@ class TaskServiceTest {
                 null,
                 null,
                 null,
-                null
+                null,
+                pageable
                 ))
-                .thenReturn(List.of(new Task("Study java", null)));
+                .thenReturn(new PageImpl<>(List.of(task), pageable, 1));
 
-        List<Task> task = taskService.findAll(
+        Page<Task> tasks = taskService.findAll(
                 PROJECT_ID,
                 email,
                 null,
                 null,
                 null,
-                null);
+                null,
+                pageable);
 
-        assertEquals(1, task.size());
-        assertEquals("Study java", task.get(0).getTitle());
+        assertEquals(1, tasks.getTotalElements());
+        assertEquals("Study java", tasks.getContent().get(0).getTitle());
 
         verify(taskRepository).findAllWithFilters(
                 PROJECT_ID,
@@ -120,7 +132,8 @@ class TaskServiceTest {
                 null,
                 null,
                 null,
-                null);
+                null,
+                pageable);
     }
     @Test
     @DisplayName("should find a task by ID for the user")
@@ -305,7 +318,8 @@ class TaskServiceTest {
                 null,
                 null,
                 null,
-                null));
+                null,
+                pageable));
 
         verify(taskRepository, never()).findByIdAndProjectUserId(PROJECT_ID, USER_ID);
     }
@@ -384,24 +398,28 @@ class TaskServiceTest {
         mockAuthenticatedUser();
         mockOwnerProject();
 
+        Task task = new Task("Task in progress", null);
+
         when(taskRepository.findAllWithFilters(
                 PROJECT_ID,
                 USER_ID,
                 TaskStatus.IN_PROGRESS,
                 null,
                 null,
-                null)).thenReturn(List.of(new Task("Task in progress", null)));
+                null,
+                pageable)).thenReturn(new PageImpl<>(List.of(task), pageable, 1));
 
-        List<Task> tasks = taskService.findAll(
+        Page<Task> tasks = taskService.findAll(
                 PROJECT_ID,
                 email,
                 TaskStatus.IN_PROGRESS,
                 null,
                 null,
-                null);
+                null,
+                pageable);
 
-        assertEquals(1, tasks.size());
-        assertEquals("Task in progress", tasks.get(0).getTitle());
+        assertEquals(1, tasks.getTotalElements());
+        assertEquals("Task in progress", tasks.getContent().get(0).getTitle());
 
         verify(taskRepository).findAllWithFilters(
                 PROJECT_ID,
@@ -409,7 +427,8 @@ class TaskServiceTest {
                 TaskStatus.IN_PROGRESS,
                 null,
                 null,
-                null
+                null,
+                pageable
         );
     }
     @Test
@@ -418,24 +437,28 @@ class TaskServiceTest {
         mockAuthenticatedUser();
         mockOwnerProject();
 
+        Task task = new Task("High Task", null);
+
         when(taskRepository.findAllWithFilters(
                 PROJECT_ID,
                 USER_ID,
                 null,
                 TaskPriority.HIGH,
                 null,
-                null)).thenReturn(List.of(new Task("High Task", null)));
+                null,
+                pageable)).thenReturn(new PageImpl<>(List.of(task), pageable, 1));
 
-        List<Task> tasks = taskService.findAll(
+        Page<Task> tasks = taskService.findAll(
                 PROJECT_ID,
                 email,
                 null,
                 TaskPriority.HIGH,
                 null,
-                null);
+                null,
+                pageable);
 
-        assertEquals(1, tasks.size());
-        assertEquals("High Task", tasks.get(0).getTitle());
+        assertEquals(1, tasks.getTotalElements());
+        assertEquals("High Task", tasks.getContent().get(0).getTitle());
 
         verify(taskRepository).findAllWithFilters(
                 PROJECT_ID,
@@ -443,7 +466,8 @@ class TaskServiceTest {
                 null,
                 TaskPriority.HIGH,
                 null,
-                null
+                null,
+                pageable
         );
     }
     @Test
@@ -452,6 +476,8 @@ class TaskServiceTest {
         mockAuthenticatedUser();
         mockOwnerProject();
 
+        Task task = new Task("October Task", null);
+
         LocalDate from = LocalDate.of(2026, 10, 1);
         LocalDate to = LocalDate.of(2026, 10, 31);
 
@@ -461,17 +487,19 @@ class TaskServiceTest {
                 null,
                 null,
                 from,
-                to)).thenReturn(List.of(new Task("October Task", null)));
+                to,
+                pageable)).thenReturn(new PageImpl<>(List.of(task), pageable, 1));
 
-        List<Task> tasks = taskService.findAll(
+        Page<Task> tasks = taskService.findAll(
                 PROJECT_ID,
                 email,
                 null,
                 null,
                 from,
-                to);
+                to,
+                pageable);
 
-        assertEquals(1, tasks.size());
+        assertEquals(1, tasks.getTotalElements());
 
         verify(taskRepository).findAllWithFilters(
                 PROJECT_ID,
@@ -479,7 +507,8 @@ class TaskServiceTest {
                 null,
                 null,
                 from,
-                to
+                to,
+                pageable
         );
     }
     @Test
@@ -488,6 +517,8 @@ class TaskServiceTest {
         mockAuthenticatedUser();
         mockOwnerProject();
 
+        Task task = new Task("Urgent Task", null);
+
         LocalDate from = LocalDate.of(2026, 10, 1);
         LocalDate to = LocalDate.of(2026, 10, 31);
 
@@ -497,17 +528,19 @@ class TaskServiceTest {
                 TaskStatus.IN_PROGRESS,
                 TaskPriority.URGENT,
                 from,
-                to)).thenReturn(List.of(new Task("Urgent Task", null)));
+                to,
+                pageable)).thenReturn(new PageImpl<>(List.of(task), pageable, 1));
 
-        List<Task> tasks = taskService.findAll(
+        Page<Task> tasks = taskService.findAll(
                 PROJECT_ID,
                 email,
                 TaskStatus.IN_PROGRESS,
                 TaskPriority.URGENT,
                 from,
-                to);
+                to,
+                pageable);
 
-        assertEquals(1, tasks.size());
+        assertEquals(1, tasks.getTotalElements());
 
         verify(taskRepository).findAllWithFilters(
                 PROJECT_ID,
@@ -515,7 +548,8 @@ class TaskServiceTest {
                 TaskStatus.IN_PROGRESS,
                 TaskPriority.URGENT,
                 from,
-                to
+                to,
+                pageable
         );
     }
     @Test
@@ -534,11 +568,12 @@ class TaskServiceTest {
                         null,
                         null,
                         from,
-                        to));
+                        to,
+                        pageable));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
 
-        verify(taskRepository, never()).findAllWithFilters(any(), any(), any(), any(), any(), any());
+        verify(taskRepository, never()).findAllWithFilters(any(), any(), any(), any(), any(), any(), any());
     }
 
 }

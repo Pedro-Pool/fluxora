@@ -5,6 +5,9 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -15,7 +18,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDate;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,6 +50,7 @@ public class TaskRepositoryIntegrationTest {
     private User anotherUser;
     private Project project;
     private Project anotherProject;
+    private Pageable pageable;
 
     @BeforeEach
     void setUp(){
@@ -61,6 +64,9 @@ public class TaskRepositoryIntegrationTest {
                 "another@example.com",
                 "$2a$10$abcdefghijklmnopqrstuu123456789012345678901234567890"
         );
+
+        pageable = PageRequest.of(0, 10);
+
         entityManager.persist(owner);
         entityManager.persist(anotherUser);
 
@@ -108,9 +114,9 @@ public class TaskRepositoryIntegrationTest {
                 LocalDate.of(2026,10,20),
                 project
         );
-        List<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
-                TaskStatus.TODO, null, null, null
+                TaskStatus.TODO, null, null, null, pageable
         );
 
         assertThat(result).extracting(Task::getId).containsExactly(matching.getId());
@@ -133,9 +139,9 @@ public class TaskRepositoryIntegrationTest {
                 project
         );
 
-        List<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
-                null, TaskPriority.HIGH, null, null
+                null, TaskPriority.HIGH, null, null, pageable
         );
 
         assertThat(result).extracting(Task::getId).containsExactly(matching.getId());
@@ -181,9 +187,9 @@ public class TaskRepositoryIntegrationTest {
                 to.plusDays(1),
                 project
         );
-        List<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
-                null, null, from, to
+                null, null, from, to, pageable
         );
 
         assertThat(result).extracting(Task::getId).containsExactlyInAnyOrder(
@@ -213,9 +219,9 @@ public class TaskRepositoryIntegrationTest {
                 project
         );
 
-        List<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
-                null, null, from, to
+                null, null, from, to, pageable
         );
 
         assertThat(result).extracting(Task::getId).containsExactly(withDueDate.getId());
@@ -238,11 +244,12 @@ public class TaskRepositoryIntegrationTest {
                 anotherProject
         );
 
-        List<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
                 null, null,
                 LocalDate.of(2026,10,10),
-                LocalDate.of(2026,10,20)
+                LocalDate.of(2026,10,20),
+                pageable
         );
 
         assertThat(result).extracting(Task::getId).containsExactly(ownTask.getId());
