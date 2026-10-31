@@ -124,7 +124,11 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].title").value("Study java"))
-                .andExpect(jsonPath("$.content[1].title").value("Practice spring"));
+                .andExpect(jsonPath("$.content[1].title").value("Practice spring"))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.number").value(0))
+                .andExpect(jsonPath("$.size").value(10));
 
         verify(taskService).findAll(
                 eq(PROJECT_ID),
@@ -372,5 +376,60 @@ class TaskControllerTest {
                 eq(to),
                 any(Pageable.class)
         );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return 400 when page is negative")
+    void test_14() throws Exception{
+        mockMvc.perform(get("/api/projects/{projectId/tasks", PROJECT_ID)
+                    .principal(authentication())
+                    .param("page", "-1"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(taskService);
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return 400 when page is size zero")
+    void test_15() throws Exception{
+        mockMvc.perform(get("/api/projects/{projectId/tasks", PROJECT_ID)
+                        .principal(authentication())
+                        .param("page", "0"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(taskService);
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return 400 when page size is negative")
+    void test_16() throws Exception{
+        mockMvc.perform(get("/api/projects/{projectId/tasks", PROJECT_ID)
+                        .principal(authentication())
+                        .param("size", "-1"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(taskService);
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return 400 when sort field is invalid")
+    void test_17() throws Exception{
+        mockMvc.perform(get("/api/projects/{projectId/tasks", PROJECT_ID)
+                        .principal(authentication())
+                        .param("sortBy", "Invalid"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(taskService);
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return 400 when sort direction is invalid")
+    void test_18() throws Exception{
+        mockMvc.perform(get("/api/projects/{projectId/tasks", PROJECT_ID)
+                        .principal(authentication())
+                        .param("direction", "Invalid"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(taskService);
     }
 }

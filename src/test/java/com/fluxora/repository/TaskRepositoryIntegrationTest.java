@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -253,5 +254,110 @@ public class TaskRepositoryIntegrationTest {
         );
 
         assertThat(result).extracting(Task::getId).containsExactly(ownTask.getId());
+    }
+    @Test
+    @DisplayName("Should return tasks ordered by title ascending")
+    void test_06(){
+        createTask(
+                "Charlie",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026,10,20),
+                project
+        );
+        createTask(
+                "Alpha",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026,10,20),
+                project
+        );
+        createTask(
+                "Bravo",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026,10,20),
+                project
+        );
+        Pageable sortedPageable = PageRequest.of(
+                0, 10, Sort.by(Sort.Direction.ASC, "title")
+        );
+        Page<Task> result = taskRepository.findAllWithFilters(
+                project.getId(), owner.getId(),
+                null, null, null, null, sortedPageable
+        );
+
+        assertThat(result).extracting(Task::getTitle).containsExactly("Alpha", "Bravo", "Charlie");
+    }
+    @Test
+    @DisplayName("Should return tasks ordered by title descending")
+    void test_07(){
+        createTask(
+                "Charlie",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026,10,20),
+                project
+        );
+        createTask(
+                "Alpha",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026,10,20),
+                project
+        );
+        createTask(
+                "Bravo",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026,10,20),
+                project
+        );
+        Pageable sortedPageable = PageRequest.of(
+                0, 10, Sort.by(Sort.Direction.DESC, "title")
+        );
+        Page<Task> result = taskRepository.findAllWithFilters(
+                project.getId(), owner.getId(),
+                null, null, null, null, sortedPageable
+        );
+
+        assertThat(result).extracting(Task::getTitle).containsExactly("Charlie", "Bravo", "Alpha");
+    }
+    @Test
+    @DisplayName("Should paginate tasks correctly and return accurate pagination metadata")
+    void test_08() {
+        createTask(
+                "Charlie",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026, 10, 20),
+                project
+        );
+        createTask(
+                "Alpha",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026, 10, 20),
+                project
+        );
+        createTask(
+                "Bravo",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026, 10, 20),
+                project
+        );
+        Pageable sortedPageable = PageRequest.of(
+                0, 1, Sort.by(Sort.Direction.ASC, "title")
+        );
+        Page<Task> result = taskRepository.findAllWithFilters(
+                project.getId(), owner.getId(),
+                null, null, null, null, sortedPageable
+        );
+        assertThat(result).extracting(Task::getTitle).containsExactly("Alpha");
+        assertThat(result.getTotalElements()).isEqualTo(3);
+        assertThat(result.getTotalPages()).isEqualTo(3);
+        assertThat(result.getNumber()).isEqualTo(0);
+        assertThat(result.getSize()).isEqualTo(1);
     }
 }

@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api")
@@ -68,7 +69,26 @@ public class TaskController {
                     "Page must be non-negative and size must be greater than zero");
         }
 
-        Sort.Direction sortDirection = Sort.Direction.fromString(direction);
+        Sort.Direction sortDirection;
+
+        try{
+            sortDirection = Sort.Direction.fromString(direction);
+        } catch (IllegalArgumentException exception){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid sort direction: "+ direction);
+        }
+
+        Set<String> allowedSortFields = Set.of(
+                "title",
+                "status",
+                "priority",
+                "dueDate",
+                "createdAt",
+                "updatedAt",
+                "completedAt"
+        );
+        if (!allowedSortFields.contains(sortBy)){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid sort field: "+ sortBy);
+        }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
 
