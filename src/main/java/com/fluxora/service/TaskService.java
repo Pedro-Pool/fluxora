@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Service
 @Transactional(readOnly = true)
@@ -38,6 +37,7 @@ public class TaskService {
             TaskPriority priority,
             LocalDate dueDateFrom,
             LocalDate dueDateTo,
+            Long categoryId,
             Pageable pageable){
         User user = findUserByEmail(email);
 
@@ -55,6 +55,7 @@ public class TaskService {
                 priority,
                 dueDateFrom,
                 dueDateTo,
+                categoryId,
                 pageable);
     }
     public Task findById(Long id, String email){

@@ -57,6 +57,7 @@ public class TaskController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueDateFrom,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueDateTo,
+            @RequestParam(required = false) Long categoryId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
@@ -99,6 +100,7 @@ public class TaskController {
                 priority,
                 dueDateFrom,
                 dueDateTo,
+                categoryId,
                 pageable
                 )
                 .map(TaskResponse::from);

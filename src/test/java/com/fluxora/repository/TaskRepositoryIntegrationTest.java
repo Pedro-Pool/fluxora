@@ -98,6 +98,15 @@ public class TaskRepositoryIntegrationTest {
 
         return task;
     }
+    private Category createCategory(String name, User user){
+        Category category = new Category(name);
+        category.assignTo(user);
+
+        entityManager.persist(category);
+        entityManager.flush();
+
+        return category;
+    }
     @Test
     @DisplayName("Should return only tasks matching select status")
     void test_01(){
@@ -117,7 +126,7 @@ public class TaskRepositoryIntegrationTest {
         );
         Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
-                TaskStatus.TODO, null, null, null, pageable
+                TaskStatus.TODO, null, null, null,null, pageable
         );
 
         assertThat(result).extracting(Task::getId).containsExactly(matching.getId());
@@ -142,7 +151,7 @@ public class TaskRepositoryIntegrationTest {
 
         Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
-                null, TaskPriority.HIGH, null, null, pageable
+                null, TaskPriority.HIGH, null, null,null, pageable
         );
 
         assertThat(result).extracting(Task::getId).containsExactly(matching.getId());
@@ -190,7 +199,7 @@ public class TaskRepositoryIntegrationTest {
         );
         Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
-                null, null, from, to, pageable
+                null, null, from, to,null, pageable
         );
 
         assertThat(result).extracting(Task::getId).containsExactlyInAnyOrder(
@@ -222,7 +231,7 @@ public class TaskRepositoryIntegrationTest {
 
         Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
-                null, null, from, to, pageable
+                null, null, from, to,null, pageable
         );
 
         assertThat(result).extracting(Task::getId).containsExactly(withDueDate.getId());
@@ -250,6 +259,7 @@ public class TaskRepositoryIntegrationTest {
                 null, null,
                 LocalDate.of(2026,10,10),
                 LocalDate.of(2026,10,20),
+                null,
                 pageable
         );
 
@@ -284,7 +294,7 @@ public class TaskRepositoryIntegrationTest {
         );
         Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
-                null, null, null, null, sortedPageable
+                null, null, null, null,null, sortedPageable
         );
 
         assertThat(result).extracting(Task::getTitle).containsExactly("Alpha", "Bravo", "Charlie");
@@ -318,7 +328,7 @@ public class TaskRepositoryIntegrationTest {
         );
         Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
-                null, null, null, null, sortedPageable
+                null, null, null, null,null, sortedPageable
         );
 
         assertThat(result).extracting(Task::getTitle).containsExactly("Charlie", "Bravo", "Alpha");
@@ -352,12 +362,115 @@ public class TaskRepositoryIntegrationTest {
         );
         Page<Task> result = taskRepository.findAllWithFilters(
                 project.getId(), owner.getId(),
-                null, null, null, null, sortedPageable
+                null, null, null, null,null, sortedPageable
         );
         assertThat(result).extracting(Task::getTitle).containsExactly("Alpha");
         assertThat(result.getTotalElements()).isEqualTo(3);
         assertThat(result.getTotalPages()).isEqualTo(3);
         assertThat(result.getNumber()).isEqualTo(0);
+        assertThat(result.getSize()).isEqualTo(1);
+    }
+    @Test
+    @DisplayName("Should return only tasks matching the selected category")
+    void test_09(){
+        Category javaCategory = createCategory("Java", owner);
+        Category springCategory = createCategory("Spring", owner);
+
+        Task javaTask = createTask(
+                "Study java",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026, 10, 20),
+                project
+        );
+        Task springTask = createTask(
+                "Study spring",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026, 10, 20),
+                project
+        );
+        javaTask.addCategory(javaCategory);
+        springTask.addCategory(springCategory);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Task> result = taskRepository.findAllWithFilters(
+                project.getId(), owner.getId(),
+                null, null, null, null,javaCategory.getId(), pageable
+        );
+        assertThat(result).extracting(Task::getTitle).containsExactly("Study java");
+        assertThat(result.getTotalElements()).isEqualTo(1);
+    }
+    @Test
+    @DisplayName("Should not return tasks when filtering by another user's category")
+    void test_10(){
+        Category anotherUserCategory = createCategory("Private category", anotherUser);
+        Task ownTask = createTask(
+                "Owner task",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026, 10, 20),
+                project
+        );
+        ownTask.addCategory(anotherUserCategory);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Task> result = taskRepository.findAllWithFilters(
+                project.getId(), owner.getId(),
+                null, null, null, null, anotherUserCategory.getId(), pageable
+        );
+
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isZero();
+    }
+    @Test
+    @DisplayName("Should paginate correctly when filtering by category")
+    void test_11(){
+        Category javaCategory = createCategory("Java", owner);
+        Category springCategory = createCategory("Spring", owner);
+
+        Task javaTask1 = createTask(
+                "Java A",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026, 10, 20),
+                project
+        );
+        Task javaTask2 = createTask(
+                "Java B",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026, 10, 20),
+                project
+        );
+        Task springTask = createTask(
+                "Spring A",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                LocalDate.of(2026, 10, 20),
+                project
+        );
+        javaTask1.addCategory(javaCategory);
+        javaTask2.addCategory(javaCategory);
+        springTask.addCategory(springCategory);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Pageable oneItemPerPage = PageRequest.of(0, 1, Sort.Direction.ASC, "title");
+
+        Page<Task> result = taskRepository.findAllWithFilters(
+                project.getId(), owner.getId(),
+                null, null, null, null, javaCategory.getId(), oneItemPerPage
+        );
+        assertThat(result).extracting(Task::getTitle).containsExactly("Java A");
+        assertThat(result.getTotalElements()).isEqualTo(2);
+        assertThat(result.getTotalPages()).isEqualTo(2);
+        assertThat(result.getNumber()).isZero();
         assertThat(result.getSize()).isEqualTo(1);
     }
 }

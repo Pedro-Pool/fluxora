@@ -110,6 +110,7 @@ class TaskServiceTest {
                 null,
                 null,
                 null,
+                null,
                 pageable
                 ))
                 .thenReturn(new PageImpl<>(List.of(task), pageable, 1));
@@ -117,6 +118,7 @@ class TaskServiceTest {
         Page<Task> tasks = taskService.findAll(
                 PROJECT_ID,
                 email,
+                null,
                 null,
                 null,
                 null,
@@ -129,6 +131,7 @@ class TaskServiceTest {
         verify(taskRepository).findAllWithFilters(
                 PROJECT_ID,
                 USER_ID,
+                null,
                 null,
                 null,
                 null,
@@ -319,6 +322,7 @@ class TaskServiceTest {
                 null,
                 null,
                 null,
+                null,
                 pageable));
 
         verify(taskRepository, never()).findByIdAndProjectUserId(PROJECT_ID, USER_ID);
@@ -407,12 +411,14 @@ class TaskServiceTest {
                 null,
                 null,
                 null,
+                null,
                 pageable)).thenReturn(new PageImpl<>(List.of(task), pageable, 1));
 
         Page<Task> tasks = taskService.findAll(
                 PROJECT_ID,
                 email,
                 TaskStatus.IN_PROGRESS,
+                null,
                 null,
                 null,
                 null,
@@ -425,6 +431,7 @@ class TaskServiceTest {
                 PROJECT_ID,
                 USER_ID,
                 TaskStatus.IN_PROGRESS,
+                null,
                 null,
                 null,
                 null,
@@ -446,6 +453,7 @@ class TaskServiceTest {
                 TaskPriority.HIGH,
                 null,
                 null,
+                null,
                 pageable)).thenReturn(new PageImpl<>(List.of(task), pageable, 1));
 
         Page<Task> tasks = taskService.findAll(
@@ -453,6 +461,7 @@ class TaskServiceTest {
                 email,
                 null,
                 TaskPriority.HIGH,
+                null,
                 null,
                 null,
                 pageable);
@@ -465,6 +474,7 @@ class TaskServiceTest {
                 USER_ID,
                 null,
                 TaskPriority.HIGH,
+                null,
                 null,
                 null,
                 pageable
@@ -488,6 +498,7 @@ class TaskServiceTest {
                 null,
                 from,
                 to,
+                null,
                 pageable)).thenReturn(new PageImpl<>(List.of(task), pageable, 1));
 
         Page<Task> tasks = taskService.findAll(
@@ -497,6 +508,7 @@ class TaskServiceTest {
                 null,
                 from,
                 to,
+                null,
                 pageable);
 
         assertEquals(1, tasks.getTotalElements());
@@ -508,6 +520,7 @@ class TaskServiceTest {
                 null,
                 from,
                 to,
+                null,
                 pageable
         );
     }
@@ -529,6 +542,7 @@ class TaskServiceTest {
                 TaskPriority.URGENT,
                 from,
                 to,
+                null,
                 pageable)).thenReturn(new PageImpl<>(List.of(task), pageable, 1));
 
         Page<Task> tasks = taskService.findAll(
@@ -538,6 +552,7 @@ class TaskServiceTest {
                 TaskPriority.URGENT,
                 from,
                 to,
+                null,
                 pageable);
 
         assertEquals(1, tasks.getTotalElements());
@@ -549,6 +564,7 @@ class TaskServiceTest {
                 TaskPriority.URGENT,
                 from,
                 to,
+                null,
                 pageable
         );
     }
@@ -569,11 +585,12 @@ class TaskServiceTest {
                         null,
                         from,
                         to,
+                        null,
                         pageable));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
 
-        verify(taskRepository, never()).findAllWithFilters(any(), any(), any(), any(), any(), any(), any());
+        verify(taskRepository, never()).findAllWithFilters(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
 }

@@ -107,9 +107,10 @@ class TaskControllerTest {
                 isNull(),
                 isNull(),
                 isNull(),
+                isNull(),
                 any(Pageable.class)
                 ))
-                .thenAnswer(invocation -> {Pageable pageable = invocation.getArgument(6);
+                .thenAnswer(invocation -> {Pageable pageable = invocation.getArgument(7);
                     return new PageImpl<>(
                             List.of(
                                     new Task("Study java", null),
@@ -133,6 +134,7 @@ class TaskControllerTest {
         verify(taskService).findAll(
                 eq(PROJECT_ID),
                 eq(EMAIL),
+                isNull(),
                 isNull(),
                 isNull(),
                 isNull(),
@@ -351,6 +353,7 @@ class TaskControllerTest {
                 TaskPriority.URGENT,
                 from,
                 to,
+                null,
                 pageable
         )).thenReturn(new PageImpl<>(
                 List.of(new Task("Filtered Task", null)),
@@ -374,13 +377,57 @@ class TaskControllerTest {
                 eq(TaskPriority.URGENT),
                 eq(from),
                 eq(to),
+                isNull(),
+                any(Pageable.class)
+        );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should pass categoryId filter to the service")
+    void test_14() throws Exception {
+        Long categoryId = 3L;
+
+        Pageable pageable = PageRequest.of(0, 10, Sort.Direction.DESC, "createdAt");
+
+        when(taskService.findAll(
+                eq(PROJECT_ID),
+                eq(EMAIL),
+                isNull(),
+                isNull(),
+                isNull(),
+                isNull(),
+                eq(categoryId),
+                any(Pageable.class)
+        )).thenAnswer(invocation -> {
+            Pageable receivedPageable = invocation.getArgument(7);
+            return new PageImpl<>(
+                    List.of(new Task("Task with java category", null)),
+                    receivedPageable,
+                    1);
+        });
+        mockMvc.perform(get("/api/projects/{projectId}/tasks", PROJECT_ID)
+                    .principal(authentication())
+                    .param("categoryId", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Task with java category"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        verify(taskService).findAll(
+                eq(PROJECT_ID),
+                eq(EMAIL),
+                isNull(),
+                isNull(),
+                isNull(),
+                isNull(),
+                eq(categoryId),
                 any(Pageable.class)
         );
     }
     @Test
     @WithMockUser(username = EMAIL)
     @DisplayName("Should return 400 when page is negative")
-    void test_14() throws Exception{
+    void test_15() throws Exception{
         mockMvc.perform(get("/api/projects/{projectId/tasks", PROJECT_ID)
                     .principal(authentication())
                     .param("page", "-1"))
@@ -391,7 +438,7 @@ class TaskControllerTest {
     @Test
     @WithMockUser(username = EMAIL)
     @DisplayName("Should return 400 when page is size zero")
-    void test_15() throws Exception{
+    void test_16() throws Exception{
         mockMvc.perform(get("/api/projects/{projectId/tasks", PROJECT_ID)
                         .principal(authentication())
                         .param("page", "0"))
@@ -402,7 +449,7 @@ class TaskControllerTest {
     @Test
     @WithMockUser(username = EMAIL)
     @DisplayName("Should return 400 when page size is negative")
-    void test_16() throws Exception{
+    void test_17() throws Exception{
         mockMvc.perform(get("/api/projects/{projectId/tasks", PROJECT_ID)
                         .principal(authentication())
                         .param("size", "-1"))
@@ -413,7 +460,7 @@ class TaskControllerTest {
     @Test
     @WithMockUser(username = EMAIL)
     @DisplayName("Should return 400 when sort field is invalid")
-    void test_17() throws Exception{
+    void test_18() throws Exception{
         mockMvc.perform(get("/api/projects/{projectId/tasks", PROJECT_ID)
                         .principal(authentication())
                         .param("sortBy", "Invalid"))
@@ -424,7 +471,7 @@ class TaskControllerTest {
     @Test
     @WithMockUser(username = EMAIL)
     @DisplayName("Should return 400 when sort direction is invalid")
-    void test_18() throws Exception{
+    void test_19() throws Exception{
         mockMvc.perform(get("/api/projects/{projectId/tasks", PROJECT_ID)
                         .principal(authentication())
                         .param("direction", "Invalid"))
@@ -432,4 +479,5 @@ class TaskControllerTest {
 
         verifyNoInteractions(taskService);
     }
+
 }

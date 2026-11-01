@@ -29,6 +29,14 @@ public interface TaskRepository extends JpaRepository<Task, Long>{
                 AND (:priority IS NULL OR t.priority = :priority)
                 AND (CAST(:dueDateFrom AS date) IS NULL OR t.dueDate >= :dueDateFrom)
                 AND (CAST(:dueDateTo AS date) IS NULL OR t.dueDate <= :dueDateTo)
+                AND (:categoryId IS NULL OR EXISTS (
+                    SELECT c.id
+                    FROM Task taskWithCategory
+                    JOIN taskWithCategory.categories c
+                    WHERE taskWithCategory.id = t.id
+                        AND c.id = :categoryId
+                        AND c.user.id = :userId
+                                    ))
             """,
             countQuery = """
                         SELECT COUNT(t)
@@ -39,6 +47,14 @@ public interface TaskRepository extends JpaRepository<Task, Long>{
                         AND (:priority IS NULL OR t.priority = :priority)
                         AND (CAST(:dueDateFrom AS date) IS NULL OR t.dueDate >= :dueDateFrom)
                         AND (CAST(:dueDateTo AS date) IS NULL OR t.dueDate <= :dueDateTo)
+                        AND (:categoryId IS NULL OR EXISTS (
+                                SELECT c.id
+                                FROM Task taskWithCategory
+                                JOIN taskWithCategory.categories c
+                                WHERE taskWithCategory.id = t.id
+                                    AND c.id = :categoryId
+                                    AND c.user.id = :userId
+                                                ))
                         """)
     Page<Task> findAllWithFilters(
             @Param("projectId") Long projectId,
@@ -47,6 +63,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>{
             @Param("priority")TaskPriority priority,
             @Param("dueDateFrom")LocalDate dueDateFrom,
             @Param("dueDateTo") LocalDate dueDateTo,
+            @Param("categoryId") Long categoryId,
             Pageable pageable
             );
 
