@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Service
 @Transactional(readOnly = true)
@@ -63,6 +64,45 @@ public class TaskService {
 
         return findTaskByIdAndUser(id, user.getId());
     }
+    public Page<Task> findOverdueTasks(String email, Pageable pageable){
+        User user = findUserByEmail(email);
+
+        return taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+                user.getId(),
+                LocalDate.now(),
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        );
+    }
+    public Page<Task> findTasksDueDate(String email, Pageable pageable){
+        User user = findUserByEmail(email);
+
+        return taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+                user.getId(),
+                LocalDate.now(),
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        );
+    }
+    public Page<Task> findUpComingTask(String email, int days, Pageable pageable){
+        if(days <= 0){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Days must be greater than zero");
+        }
+
+        User user = findUserByEmail(email);
+
+        LocalDate today = LocalDate.now();
+        LocalDate endDate = today.plusDays(days);
+
+        return taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+                user.getId(),
+                today,
+                endDate,
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        );
+    }
+
     @Transactional
     public Task create(Long projectId,
                        String title,
@@ -140,6 +180,7 @@ public class TaskService {
         Task task = findTaskByIdAndUser(id, user.getId());
         taskRepository.delete(task);
     }
+
     private User findUserByEmail(String email){
         return userRepository.findByEmail(email).orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.UNAUTHORIZED, "Authenticated user not found"

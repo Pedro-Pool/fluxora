@@ -592,5 +592,172 @@ class TaskServiceTest {
 
         verify(taskRepository, never()).findAllWithFilters(any(), any(), any(), any(), any(), any(), any(), any());
     }
+    @Test
+    @DisplayName("Should return overdue tasks")
+    void test_24(){
+        mockAuthenticatedUser();
 
+        LocalDate today = LocalDate.now();
+        Task task = new Task("Overdue task", null);
+
+        Page<Task> expected = new PageImpl<>(
+                List.of(task), pageable, 1
+        );
+        when(taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+                USER_ID,
+                today,
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        )).thenReturn(expected);
+
+        Page<Task> tasks = taskService.findOverdueTasks(email, pageable);
+
+        assertEquals(1, tasks.getTotalElements());
+        assertEquals("Overdue task", tasks.getContent().get(0).getTitle());
+
+        verify(taskRepository).findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+                USER_ID,
+                today,
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        );
+    }
+    @Test
+    @DisplayName("Should return an empty page when there are no overdue tasks")
+    void test_25(){
+        mockAuthenticatedUser();
+
+        LocalDate today = LocalDate.now();
+
+        when(taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+                USER_ID,
+                today,
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        )).thenReturn(Page.empty());
+
+        Page<Task> tasks = taskService.findOverdueTasks(email, pageable);
+
+        assertEquals(0, tasks.getTotalElements());
+
+        verify(taskRepository).findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+                USER_ID,
+                today,
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        );
+    }
+    @Test
+    @DisplayName("Should return tasks due today")
+    void test_26(){
+        mockAuthenticatedUser();
+
+        LocalDate today = LocalDate.now();
+        Task task = new Task("Task due today", null);
+
+        Page<Task> expected = new PageImpl<>(
+                List.of(task), pageable, 1
+        );
+        when(taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+                USER_ID,
+                today,
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        )).thenReturn(expected);
+
+        Page<Task> tasks = taskService.findTasksDueDate(email, pageable);
+
+        assertEquals(1, tasks.getTotalElements());
+        assertEquals("Task due today", tasks.getContent().get(0).getTitle());
+
+        verify(taskRepository).findAllByProjectUserIdAndDueDateAndStatusNotIn(
+                USER_ID,
+                today,
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        );
+    }
+    @Test
+    @DisplayName("Should return an empty page when there are no tasks due today")
+    void test_27(){
+        mockAuthenticatedUser();
+
+        LocalDate today = LocalDate.now();
+
+        when(taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+                USER_ID,
+                today,
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        )).thenReturn(Page.empty());
+
+        Page<Task> tasks = taskService.findTasksDueDate(email, pageable);
+
+        assertEquals(0, tasks.getTotalElements());
+
+        verify(taskRepository).findAllByProjectUserIdAndDueDateAndStatusNotIn(
+                USER_ID,
+                today,
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        );
+    }
+    @Test
+    @DisplayName("Should return upcoming tasks within the specified period")
+    void test_28(){
+        mockAuthenticatedUser();
+
+        int days = 14;
+
+        LocalDate today = LocalDate.now();
+        LocalDate endDate = today.plusDays(days);
+
+        Task task = new Task("Upcoming task", null);
+
+        Page<Task> expected = new PageImpl<>(
+                List.of(task), pageable, 1
+        );
+        when(taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+                USER_ID,
+                today,
+                endDate,
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        )).thenReturn(expected);
+
+        Page<Task> tasks = taskService.findUpComingTask(email, days, pageable);
+
+        assertEquals(1, tasks.getTotalElements());
+        assertEquals("Upcoming task", tasks.getContent().get(0).getTitle());
+
+        verify(taskRepository).findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+                USER_ID,
+                today,
+                endDate,
+                List.of(TaskStatus.DONE, TaskStatus.CANCELED),
+                pageable
+        );
+    }
+    @Test
+    @DisplayName("Should reject zero days")
+    void test_29(){
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> taskService.findUpComingTask(email, 0, pageable)
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+
+        verifyNoInteractions(taskRepository);
+    }
+    @Test
+    @DisplayName("Should reject negative days")
+    void test_30(){
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> taskService.findUpComingTask(email, -1, pageable)
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+
+        verifyNoInteractions(taskRepository);
+    }
 }

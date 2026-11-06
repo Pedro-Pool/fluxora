@@ -14,11 +14,29 @@ import java.util.List;
 import java.util.Optional;
 
 public interface TaskRepository extends JpaRepository<Task, Long>{
-    List<Task> findAllByProjectIdAndProjectUserId(Long projectId, Long userId);
 
     Optional<Task> findByIdAndProjectUserId(Long id, Long userId);
 
     List<Task> findAllByProjectUserId(Long id);
+
+    Page<Task> findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+            Long userId,
+            LocalDate today,
+            List<TaskStatus> excludedStatuses,
+            Pageable pageable);
+
+    Page<Task> findAllByProjectUserIdAndDueDateAndStatusNotIn(
+            Long userId,
+            LocalDate today,
+            List<TaskStatus> excludedStatuses,
+            Pageable pageable);
+
+    Page<Task> findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+            Long userId,
+            LocalDate startDate,
+            LocalDate endDate,
+            List<TaskStatus> excludedStatuses,
+            Pageable pageable);
 
     @Query(value = """
             SELECT t

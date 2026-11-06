@@ -112,6 +112,31 @@ public class TaskController {
 
         return ResponseEntity.ok(TaskResponse.from(task));
     }
+    @GetMapping("/tasks/overdue")
+    public ResponseEntity<Page<TaskResponse>> findOverdueTasks(Authentication authentication, Pageable pageable){
+        Page<TaskResponse> tasks = taskService.findOverdueTasks(authentication.getName(), pageable)
+                .map(TaskResponse::from);
+
+        return ResponseEntity.ok(tasks);
+    }
+    @GetMapping("/tasks/due-today")
+    public ResponseEntity<Page<TaskResponse>> findTaskDueDate(Authentication authentication, Pageable pageable){
+        Page<TaskResponse> tasks = taskService.findTasksDueDate(authentication.getName(), pageable)
+                .map(TaskResponse::from);
+
+        return ResponseEntity.ok(tasks);
+    }
+    @GetMapping("/tasks/upcoming")
+    public ResponseEntity<Page<TaskResponse>> findUpComingTask(
+            Authentication authentication,
+            @RequestParam(defaultValue = "7") int days,
+            Pageable pageable){
+        Page<TaskResponse> tasks = taskService.findUpComingTask(authentication.getName(), days, pageable)
+                .map(TaskResponse::from);
+
+        return ResponseEntity.ok(tasks);
+    }
+
     @PutMapping("/tasks/{id}")
     public ResponseEntity<TaskResponse> update(@PathVariable Long id,
                                                @Valid @RequestBody TaskRequest request,

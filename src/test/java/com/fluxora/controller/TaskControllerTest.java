@@ -10,18 +10,18 @@ import com.fluxora.service.ProjectService;
 import com.fluxora.service.TaskService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -387,8 +387,6 @@ class TaskControllerTest {
     void test_14() throws Exception {
         Long categoryId = 3L;
 
-        Pageable pageable = PageRequest.of(0, 10, Sort.Direction.DESC, "createdAt");
-
         when(taskService.findAll(
                 eq(PROJECT_ID),
                 eq(EMAIL),
@@ -479,5 +477,220 @@ class TaskControllerTest {
 
         verifyNoInteractions(taskService);
     }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return overdue tasks")
+    void test_20() throws Exception{
+        Page<Task> page = new PageImpl<>(
+                List.of(new Task("Overdue task", null)),
+                PageRequest.of(0,10),
+                1
+        );
+        when(taskService.findOverdueTasks(
+                eq(EMAIL),
+                any(Pageable.class)
+        )).thenReturn(page);
 
+        mockMvc.perform(get("/api/tasks/overdue")
+                    .principal(authentication()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Overdue task"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        verify(taskService).findOverdueTasks(
+                eq(EMAIL),
+                any(Pageable.class)
+        );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return an empty page when there are no overdue tasks")
+    void test_21() throws Exception{
+        when(taskService.findOverdueTasks(
+                eq(EMAIL),
+                any(Pageable.class)
+        )).thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/tasks/overdue")
+                        .principal(authentication()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        verify(taskService).findOverdueTasks(
+                eq(EMAIL),
+                any(Pageable.class)
+        );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return tasks due today")
+    void test_22() throws Exception{
+        Page<Task> page = new PageImpl<>(
+                List.of(new Task("Task due today", null)),
+                PageRequest.of(0,10),
+                1
+        );
+        when(taskService.findTasksDueDate(
+                eq(EMAIL),
+                any(Pageable.class)
+        )).thenReturn(page);
+
+        mockMvc.perform(get("/api/tasks/due-today")
+                        .principal(authentication()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Task due today"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        verify(taskService).findTasksDueDate(
+                eq(EMAIL),
+                any(Pageable.class)
+        );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return an empty page when there are no task due date")
+    void test_23() throws Exception{
+        when(taskService.findTasksDueDate(
+                eq(EMAIL),
+                any(Pageable.class)
+        )).thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/tasks/due-today")
+                        .principal(authentication()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        verify(taskService).findTasksDueDate(
+                eq(EMAIL),
+                any(Pageable.class)
+        );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return upcoming tasks using the default period")
+    void test_24() throws Exception{
+        Page<Task> page = new PageImpl<>(
+                List.of(new Task("Upcoming task", null)),
+                PageRequest.of(0,10),
+                1
+        );
+        when(taskService.findUpComingTask(
+                eq(EMAIL),
+                eq(7),
+                any(Pageable.class)
+        )).thenReturn(page);
+
+        mockMvc.perform(get("/api/tasks/upcoming")
+                        .principal(authentication()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Upcoming task"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        verify(taskService).findUpComingTask(
+                eq(EMAIL),
+                eq(7),
+                any(Pageable.class)
+        );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return upcoming tasks using a custom period")
+    void test_25() throws Exception{
+        Page<Task> page = new PageImpl<>(
+                List.of(new Task("Upcoming task", null)),
+                PageRequest.of(0,10),
+                1
+        );
+        when(taskService.findUpComingTask(
+                eq(EMAIL),
+                eq(14),
+                any(Pageable.class)
+        )).thenReturn(page);
+
+        mockMvc.perform(get("/api/tasks/upcoming")
+                        .param("days", "14")
+                        .principal(authentication()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Upcoming task"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        verify(taskService).findUpComingTask(
+                eq(EMAIL),
+                eq(14),
+                any(Pageable.class)
+        );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return an empty page when there are no upcoming tasks")
+    void test_26() throws Exception{
+        when(taskService.findUpComingTask(
+                eq(EMAIL),
+                eq(7),
+                any(Pageable.class)
+        )).thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/tasks/upcoming")
+                        .principal(authentication()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        verify(taskService).findUpComingTask(
+                eq(EMAIL),
+                eq(7),
+                any(Pageable.class)
+        );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should preserver pagination parameters")
+    void test_27() throws Exception{
+        when(taskService.findUpComingTask(
+                eq(EMAIL),
+                eq(7),
+                any(Pageable.class)
+        )).thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/tasks/upcoming")
+                        .param("page", "1")
+                        .param("size", "5")
+                        .principal(authentication()))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        verify(taskService).findUpComingTask(
+                eq(EMAIL),
+                eq(7),
+                pageableCaptor.capture()
+        );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return bad request when days is zero")
+    void test_28() throws Exception{
+        when(taskService.findUpComingTask(
+                eq(EMAIL),
+                eq(0),
+                any(Pageable.class)
+        )).thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Days must be greater than zero"));
+
+        mockMvc.perform(get("/api/tasks/upcoming")
+                        .param("days", "0")
+                        .principal(authentication()))
+                .andExpect(status().isBadRequest());
+
+        verify(taskService).findUpComingTask(
+                eq(EMAIL),
+                eq(0),
+                any(Pageable.class)
+        );
+    }
 }
