@@ -1,5 +1,6 @@
 package com.fluxora.repository;
 
+import com.fluxora.dto.TaskStatisticsResponse;
 import com.fluxora.entity.Task;
 import com.fluxora.entity.TaskPriority;
 import com.fluxora.entity.TaskStatus;
@@ -84,5 +85,27 @@ public interface TaskRepository extends JpaRepository<Task, Long>{
             @Param("categoryId") Long categoryId,
             Pageable pageable
             );
+
+    @Query("""
+            SELECT new com.fluxora.dto.TaskStatisticsResponse(
+                COUNT(t),
+                COUNT(CASE WHEN t.status = com.fluxora.entity.TaskStatus.TODO THEN 1 ELSE NULL END),
+                COUNT(CASE WHEN t.status = com.fluxora.entity.TaskStatus.IN_PROGRESS THEN 1 ELSE NULL END),
+                COUNT(CASE WHEN t.status = com.fluxora.entity.TaskStatus.DONE THEN 1 ELSE NULL END),
+                COUNT(CASE WHEN t.status = com.fluxora.entity.TaskStatus.CANCELED THEN 1 ELSE NULL END),
+                COUNT(CASE WHEN t.dueDate < CURRENT_DATE AND t.status NOT IN(
+                            com.fluxora.entity.TaskStatus.DONE,
+                            com.fluxora.entity.TaskStatus.CANCELED
+                            )
+                            THEN 1
+                            ELSE NULL
+                        END)
+                    )
+            FROM Task t
+            WHERE t.project.user.id = :userId
+            """)
+    TaskStatisticsResponse findTaskStatistics(
+            @Param("userId") Long userId
+    );
 
 }

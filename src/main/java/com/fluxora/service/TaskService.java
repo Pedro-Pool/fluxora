@@ -1,5 +1,6 @@
 package com.fluxora.service;
 
+import com.fluxora.dto.TaskStatisticsResponse;
 import com.fluxora.entity.*;
 import com.fluxora.repository.ProjectRepository;
 import com.fluxora.repository.TaskRepository;
@@ -101,6 +102,11 @@ public class TaskService {
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
                 pageable
         );
+    }
+    public TaskStatisticsResponse findTaskStatistics(String email){
+        User user = findUserByEmail(email);
+
+        return taskRepository.findTaskStatistics(user.getId());
     }
 
     @Transactional

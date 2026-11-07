@@ -1,6 +1,7 @@
 package com.fluxora.controller;
 
 import com.fluxora.config.JwtAuthenticationFilter;
+import com.fluxora.dto.TaskStatisticsResponse;
 import com.fluxora.entity.Task;
 import com.fluxora.entity.TaskPriority;
 import com.fluxora.entity.TaskStatus;
@@ -692,5 +693,55 @@ class TaskControllerTest {
                 eq(0),
                 any(Pageable.class)
         );
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return task statistics")
+    void test_29() throws Exception{
+        TaskStatisticsResponse statistics = new TaskStatisticsResponse(
+                18,
+                5,
+                3,
+                8,
+                2,
+                3);
+        when(taskService.findTaskStatistics(EMAIL)).thenReturn(statistics);
+
+        mockMvc.perform(get("/api/tasks/statistics")
+                    .principal(authentication()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalTasks").value(18))
+                .andExpect(jsonPath("$.pendingTasks").value(5))
+                .andExpect(jsonPath("$.inProgressTasks").value(3))
+                .andExpect(jsonPath("$.completedTasks").value(8))
+                .andExpect(jsonPath("$.canceledTasks").value(2))
+                .andExpect(jsonPath("$.overdueTasks").value(3));
+
+        verify(taskService).findTaskStatistics(EMAIL);
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("Should return zero statistics when there are no tasks")
+    void test_30() throws Exception{
+        TaskStatisticsResponse statistics = new TaskStatisticsResponse(
+                0,
+                0,
+                0,
+                0,
+                0,
+                0);
+        when(taskService.findTaskStatistics(EMAIL)).thenReturn(statistics);
+
+        mockMvc.perform(get("/api/tasks/statistics")
+                        .principal(authentication()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalTasks").value(0))
+                .andExpect(jsonPath("$.pendingTasks").value(0))
+                .andExpect(jsonPath("$.inProgressTasks").value(0))
+                .andExpect(jsonPath("$.completedTasks").value(0))
+                .andExpect(jsonPath("$.canceledTasks").value(0))
+                .andExpect(jsonPath("$.overdueTasks").value(0));
+
+        verify(taskService).findTaskStatistics(EMAIL);
     }
 }

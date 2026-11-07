@@ -2,6 +2,7 @@ package com.fluxora.controller;
 
 import com.fluxora.dto.TaskRequest;
 import com.fluxora.dto.TaskResponse;
+import com.fluxora.dto.TaskStatisticsResponse;
 import com.fluxora.entity.Task;
 import com.fluxora.entity.TaskPriority;
 import com.fluxora.entity.TaskStatus;
@@ -135,6 +136,12 @@ public class TaskController {
                 .map(TaskResponse::from);
 
         return ResponseEntity.ok(tasks);
+    }
+    @GetMapping("/tasks/statistics")
+    public ResponseEntity<TaskStatisticsResponse> findTaskStatistics(Authentication authentication){
+        TaskStatisticsResponse statistics = taskService.findTaskStatistics(authentication.getName());
+
+        return ResponseEntity.ok(statistics);
     }
 
     @PutMapping("/tasks/{id}")

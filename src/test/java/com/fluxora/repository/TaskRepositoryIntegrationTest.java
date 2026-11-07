@@ -1,6 +1,7 @@
 package com.fluxora.repository;
 
 import com.fluxora.config.AbstractIntegrationTest;
+import com.fluxora.dto.TaskStatisticsResponse;
 import com.fluxora.entity.*;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -966,5 +967,66 @@ public class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
                 pageable
         );
         assertThat(result).extracting(Task::getId).containsExactly(lastDayTask.getId());
+    }
+    @Test
+    @DisplayName("Should return correct task statistics")
+    void test_34(){
+        LocalDate today = LocalDate.now();
+
+        createTask(
+                "Pending",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                today.plusDays(2),
+                project
+        );
+        createTask(
+                "In progress",
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.HIGH,
+                today.minusDays(1),
+                project
+        );
+        createTask(
+                "Completed",
+                TaskStatus.DONE,
+                TaskPriority.HIGH,
+                today.plusDays(2),
+                project
+        );
+        createTask(
+                "Canceled",
+                TaskStatus.CANCELED,
+                TaskPriority.HIGH,
+                today.plusDays(3),
+                project
+        );
+        createTask(
+                "Overdue",
+                TaskStatus.TODO,
+                TaskPriority.HIGH,
+                today.minusDays(4),
+                project
+        );
+        TaskStatisticsResponse statistics = taskRepository.findTaskStatistics(owner.getId());
+
+        assertThat(statistics.totalTasks()).isEqualTo(5);
+        assertThat(statistics.pendingTasks()).isEqualTo(2);
+        assertThat(statistics.inProgressTasks()).isEqualTo(1);
+        assertThat(statistics.completedTasks()).isEqualTo(1);
+        assertThat(statistics.canceledTasks()).isEqualTo(1);
+        assertThat(statistics.overdueTasks()).isEqualTo(2);
+    }
+    @Test
+    @DisplayName("Should return zero statistics when user has no tasks")
+    void test_35(){
+        TaskStatisticsResponse statistics = taskRepository.findTaskStatistics(owner.getId());
+
+        assertThat(statistics.totalTasks()).isZero();
+        assertThat(statistics.pendingTasks()).isZero();
+        assertThat(statistics.inProgressTasks()).isZero();
+        assertThat(statistics.completedTasks()).isZero();
+        assertThat(statistics.canceledTasks()).isZero();
+        assertThat(statistics.overdueTasks()).isZero();
     }
 }

@@ -1,5 +1,6 @@
 package com.fluxora.service;
 
+import com.fluxora.dto.TaskStatisticsResponse;
 import com.fluxora.entity.*;
 import com.fluxora.repository.ProjectRepository;
 import com.fluxora.repository.TaskRepository;
@@ -759,5 +760,35 @@ class TaskServiceTest {
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
 
         verifyNoInteractions(taskRepository);
+    }
+    @Test
+    @DisplayName("Should return task statistics")
+    void test_31(){
+        mockAuthenticatedUser();
+
+        TaskStatisticsResponse expected = new TaskStatisticsResponse(
+                18,5,3,8,2,3
+        );
+
+        when(taskRepository.findTaskStatistics(USER_ID)).thenReturn(expected);
+
+        TaskStatisticsResponse statistics = taskService.findTaskStatistics(email);
+
+        assertEquals(18, statistics.totalTasks());
+        assertEquals(5, statistics.pendingTasks());
+        assertEquals(3, statistics.inProgressTasks());
+        assertEquals(8, statistics.completedTasks());
+        assertEquals(2, statistics.canceledTasks());
+        assertEquals(3, statistics.overdueTasks());
+    }
+    @Test
+    @DisplayName("Should reject statistics request when user does not exist")
+    void test_32(){
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+        assertThrows(ResponseStatusException.class,
+                () -> taskService.findTaskStatistics(email));
+
+        verify(taskRepository, never()).findTaskStatistics(anyLong());
     }
 }
