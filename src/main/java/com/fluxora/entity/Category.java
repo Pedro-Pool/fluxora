@@ -6,7 +6,7 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "categories",  uniqueConstraints = @UniqueConstraint(
-        name = "uk_cateogory_name_user",
+        name = "uk_category_name_user",
         columnNames = {"user_id", "name"}))
 public class Category {
     @Id
