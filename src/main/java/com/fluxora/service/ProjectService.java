@@ -1,7 +1,10 @@
 package com.fluxora.service;
 
 import com.fluxora.entity.Project;
+import com.fluxora.entity.ProjectMember;
+import com.fluxora.entity.ProjectRole;
 import com.fluxora.entity.User;
+import com.fluxora.repository.ProjectMemberRepository;
 import com.fluxora.repository.ProjectRepository;
 import com.fluxora.repository.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -14,13 +17,20 @@ import java.util.List;
 @Service
 @Transactional(readOnly = true)
 public class ProjectService {
+
     private final ProjectRepository projectRepository;
 
     private final UserRepository userRepository;
 
-    public ProjectService(ProjectRepository projectRepository, UserRepository userRepository) {
+    private final ProjectMemberRepository projectMemberRepository;
+
+    public ProjectService(
+            ProjectRepository projectRepository,
+            UserRepository userRepository,
+            ProjectMemberRepository projectMemberRepository) {
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
+        this.projectMemberRepository = projectMemberRepository;
     }
     public List<Project> findAll(String email){
         User user = findUserByEmail(email);
@@ -37,7 +47,16 @@ public class ProjectService {
         Project project = new Project(name, description);
         project.assignTo(user);
 
-        return projectRepository.save(project);
+        Project savedProject = projectRepository.save(project);
+
+        ProjectMember owner = new ProjectMember(
+                savedProject,
+                user,
+                ProjectRole.OWNER
+        );
+        projectMemberRepository.save(owner);
+
+        return savedProject;
     }
     @Transactional
     public Project update(Long id, String name, String description, String email){

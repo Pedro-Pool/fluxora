@@ -15,7 +15,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-public class AuthServiceTest {
+class AuthServiceTest {
     private UserRepository userRepository;
     private JwtService jwtService;
     private PasswordEncoder passwordEncoder;

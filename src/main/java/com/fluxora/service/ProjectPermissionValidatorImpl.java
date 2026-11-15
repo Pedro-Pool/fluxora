@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
-public class ProjectPermissionValidatorImpl implements ProjectPermissionValidator{
+class ProjectPermissionValidatorImpl implements ProjectPermissionValidator{
 
     private final ProjectMemberRepository projectMemberRepository;
     private final UserRepository userRepository;
