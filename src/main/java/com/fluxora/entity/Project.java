@@ -3,6 +3,8 @@ package com.fluxora.entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 @Entity
@@ -22,6 +24,9 @@ public class Project {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @OneToMany(mappedBy = "project", fetch = FetchType.LAZY)
+    private List<ProjectMember> members = new ArrayList<>();
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -37,6 +42,17 @@ public class Project {
             throw new IllegalArgumentException("Project owner is mandatory");
         }
         this.user = user;
+    }
+
+    public void addMember(ProjectMember member){
+        if (member == null){
+            throw new IllegalArgumentException("Project member cannot be null");
+        }
+
+        if (!members.contains(member)){
+            members.add(member);
+            member.assignTo(this);
+        }
     }
 
     public void updateDetails(String name, String description){
@@ -80,6 +96,10 @@ public class Project {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public List<ProjectMember> getMembers() {
+        return members;
     }
 
     @Override

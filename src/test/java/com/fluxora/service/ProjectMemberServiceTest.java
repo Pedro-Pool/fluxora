@@ -58,9 +58,6 @@ class ProjectMemberServiceTest {
 
         member = new ProjectMember(project, user, ProjectRole.OWNER);
     }
-    private void mockAuthenticatedUser(){
-        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-    }
     @Test
     @DisplayName("Should find all members of a project")
     void test_01(){
@@ -71,8 +68,8 @@ class ProjectMemberServiceTest {
         List<ProjectMember> members = projectMemberService.findMembers(PROJECT_ID, email);
 
         assertEquals(1, members.size());
-        assertSame(member, members.get(0));
-        assertEquals(ProjectRole.OWNER, members.get(0).getRole());
+        assertSame(member, members.getFirst());
+        assertEquals(ProjectRole.OWNER, members.getFirst().getRole());
 
         verify(projectPermissionValidator).validateMembership(PROJECT_ID, email);
         verify(projectMemberRepository).findByProjectId(PROJECT_ID);
@@ -296,7 +293,7 @@ class ProjectMemberServiceTest {
                         ProjectRole.MEMBER,
                         email
                 )
-        );;
+        );
 
         assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
 
@@ -485,8 +482,11 @@ class ProjectMemberServiceTest {
         );
         assertNotNull(savedMember);
         assertSame(invitedUser, savedMember.getUser());
-        assertSame(invitedUser, savedMember.getUser());
+        assertSame(project, savedMember.getProject());
+
         assertEquals(ProjectRole.ADMIN, savedMember.getRole());
+        assertTrue(project.getMembers().contains(savedMember));
+
 
         verify(projectPermissionValidator).validateMembership(PROJECT_ID, email);
         verify(projectPermissionValidator).validateCanAddMember(member, ProjectRole.ADMIN);

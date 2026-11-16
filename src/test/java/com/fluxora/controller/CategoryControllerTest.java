@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(CategoryController.class)
 @AutoConfigureMockMvc(addFilters = false)
-public class CategoryControllerTest {
+class CategoryControllerTest {
 
     private static final String EMAIL = "test@fluxora.com";
 

@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class TaskAuthorizationIntegrationTest {
+class TaskAuthorizationIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 

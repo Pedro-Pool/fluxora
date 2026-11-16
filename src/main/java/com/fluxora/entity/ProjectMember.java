@@ -44,6 +44,15 @@ public class ProjectMember {
         this.user = user;
         this.role = role;
     }
+
+    public void assignTo(Project project){
+        if (project == null){
+            throw new IllegalArgumentException("Project cannot be null");
+        }
+
+        this.project = project;
+    }
+
     @PrePersist
     protected void onCreate(){
         this.joinedAt = LocalDateTime.now();

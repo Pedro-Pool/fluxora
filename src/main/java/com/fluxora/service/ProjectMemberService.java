@@ -67,6 +67,8 @@ public class ProjectMemberService {
                 role
         );
 
+        requesterMembership.getProject().addMember(newMember);
+
         return projectMemberRepository.save(newMember);
     }
     @Transactional

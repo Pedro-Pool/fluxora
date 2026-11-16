@@ -54,6 +54,8 @@ public class ProjectService {
                 user,
                 ProjectRole.OWNER
         );
+        savedProject.addMember(owner);
+
         projectMemberRepository.save(owner);
 
         return savedProject;

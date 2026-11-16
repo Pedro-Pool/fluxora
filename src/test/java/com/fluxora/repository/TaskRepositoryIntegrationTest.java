@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-public class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
+class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private TaskRepository taskRepository;
 

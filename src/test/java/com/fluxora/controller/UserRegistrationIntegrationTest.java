@@ -19,7 +19,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class UserRegistrationIntegrationTest extends AbstractIntegrationTest {
+class UserRegistrationIntegrationTest extends AbstractIntegrationTest {
     @LocalServerPort
     private int port;
 
