@@ -1,4 +1,4 @@
-package com.fluxora.service;
+package com.fluxora.validation.project;
 
 import com.fluxora.entity.ProjectMember;
 import com.fluxora.entity.ProjectRole;
@@ -67,6 +67,25 @@ class ProjectPermissionValidatorImpl implements ProjectPermissionValidator{
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Administrators can only add members with MEMBER role"
+            );
+        }
+    }
+    @Override
+    public void validateCanUpdateProject(ProjectMember membership){
+        if (membership.getRole() != ProjectRole.OWNER
+        && membership.getRole() != ProjectRole.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You do not have permission to update this project"
+            );
+        }
+    }
+    @Override
+    public void validateCanDeleteProject(ProjectMember membership){
+        if (membership.getRole() != ProjectRole.OWNER) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You do not have permission to delete this project"
             );
         }
     }

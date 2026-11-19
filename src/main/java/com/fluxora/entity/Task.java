@@ -44,6 +44,14 @@ public class Task {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
+    private User assignee;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "created_by_id", nullable = false, updatable = false)
+    private User createdBy;
+
     @ManyToMany
     @JoinTable(name = "task_categories", joinColumns = @JoinColumn(name = "task_id"),
     inverseJoinColumns = @JoinColumn(name = "category_id"),
@@ -89,6 +97,19 @@ public class Task {
             this.priority = priority;
         }
         this.dueDate = dueDate;
+    }
+    public void assignTo(User assignee){
+        this.assignee = assignee;
+    }
+    public void setCreatedBy(User createdBy){
+        if (createdBy == null){
+            throw new IllegalArgumentException("Task creator is mandatory");
+        }
+        if (this.createdBy != null){
+            throw new IllegalStateException("Task creator cannot be changed");
+        }
+
+        this.createdBy = createdBy;
     }
 
     public void completed(){
@@ -182,6 +203,14 @@ public class Task {
 
     public Project getProject(){
         return project;
+    }
+
+    public User getAssignee() {
+        return assignee;
+    }
+
+    public User getCreatedBy() {
+        return createdBy;
     }
 
     @Override

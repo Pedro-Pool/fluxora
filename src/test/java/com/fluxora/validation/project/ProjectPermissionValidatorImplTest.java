@@ -1,4 +1,4 @@
-package com.fluxora.service;
+package com.fluxora.validation.project;
 
 import com.fluxora.entity.Project;
 import com.fluxora.entity.ProjectMember;
@@ -266,6 +266,81 @@ class ProjectPermissionValidatorImplTest {
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
                 () -> permissionValidator.validateCanAddMember(member, ProjectRole.ADMIN)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
+    @Test
+    @DisplayName("Should allow owner to update the project")
+    void test_17() {
+        assertDoesNotThrow(
+                () -> permissionValidator.validateCanUpdateProject(owner)
+        );
+    }
+    @Test
+    @DisplayName("Should allow admin to update the project")
+    void test_18() {
+        ProjectMember admin = new ProjectMember(
+                project,
+                user,
+                ProjectRole.ADMIN
+        );
+
+        assertDoesNotThrow(
+                () -> permissionValidator.validateCanUpdateProject(admin)
+        );
+    }
+    @Test
+    @DisplayName("Should return 403 when member tries to update the project")
+    void test_19() {
+        ProjectMember member = new ProjectMember(
+                project,
+                user,
+                ProjectRole.MEMBER
+        );
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> permissionValidator.validateCanUpdateProject(member)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
+    @Test
+    @DisplayName("Should allow owner to delete the project")
+    void test_20() {
+        assertDoesNotThrow(
+                () -> permissionValidator.validateCanDeleteProject(owner)
+        );
+    }
+    @Test
+    @DisplayName("Should return 403 when admin tries to delete the project")
+    void test_21() {
+        ProjectMember admin = new ProjectMember(
+                project,
+                user,
+                ProjectRole.ADMIN
+        );
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> permissionValidator.validateCanDeleteProject(admin)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
+    @Test
+    @DisplayName("Should return 403 when member tries to delete the project")
+    void test_22() {
+        ProjectMember member = new ProjectMember(
+                project,
+                user,
+                ProjectRole.MEMBER
+        );
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> permissionValidator.validateCanDeleteProject(member)
         );
 
         assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());

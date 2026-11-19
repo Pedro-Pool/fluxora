@@ -1,10 +1,7 @@
 package com.fluxora.controller;
 
 import com.fluxora.entity.*;
-import com.fluxora.repository.CategoryRepository;
-import com.fluxora.repository.ProjectRepository;
-import com.fluxora.repository.TaskRepository;
-import com.fluxora.repository.UserRepository;
+import com.fluxora.repository.*;
 import com.fluxora.service.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +55,9 @@ class TaskAuthorizationIntegrationTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private ProjectMemberRepository projectMemberRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private User userA;
@@ -90,6 +90,7 @@ class TaskAuthorizationIntegrationTest {
                 TaskStatus.TODO,
                 TaskPriority.MEDIUM,
                 null,
+                null,
                 userA.getEmail());
 
         taskB = taskService.create(
@@ -98,6 +99,7 @@ class TaskAuthorizationIntegrationTest {
                 "test",
                 TaskStatus.TODO,
                 TaskPriority.MEDIUM,
+                null,
                 null,
                 userB.getEmail());
     }
@@ -110,18 +112,35 @@ class TaskAuthorizationIntegrationTest {
         if (taskB != null && taskB.getId() != null) {
             taskRepository.deleteById(taskB.getId());
         }
+
         if (categoryA != null && categoryA.getId() != null) {
             categoryRepository.deleteById(categoryA.getId());
         }
         if (userB != null && userB.getId() != null) {
             categoryRepository.deleteAll(categoryRepository.findAllByUserId(userB.getId()));
         }
+
+        if (projectA != null && projectA.getId() != null) {
+            projectMemberRepository.deleteAll(
+                    projectMemberRepository.findByProjectId(projectA.getId())
+            );
+            projectRepository.deleteById(projectA.getId());
+        }
+
+        if (projectB != null && projectB.getId() != null) {
+            projectMemberRepository.deleteAll(
+                    projectMemberRepository.findByProjectId(projectB.getId())
+            );
+            projectRepository.deleteById(projectB.getId());
+        }
+
         if (projectA != null && projectA.getId() != null) {
             projectRepository.deleteById(projectA.getId());
         }
         if (projectB != null && projectB.getId() != null) {
             projectRepository.deleteById(projectB.getId());
         }
+
         if (userA != null && userA.getId() != null) {
             userRepository.delete(userA);
         }
@@ -397,7 +416,7 @@ class TaskAuthorizationIntegrationTest {
                 SELECT COUNT(*)
                 FROM categories
                 WHERE user_id = ? AND name = ?
-                    """,
+                """,
                 Integer.class,
                 userA.getId(),
                 "Backend"

@@ -2,6 +2,7 @@ package com.fluxora.service;
 
 import com.fluxora.dto.TaskStatisticsResponse;
 import com.fluxora.entity.*;
+import com.fluxora.repository.ProjectMemberRepository;
 import com.fluxora.repository.ProjectRepository;
 import com.fluxora.repository.TaskRepository;
 import com.fluxora.exception.TaskNotFoundException;
@@ -23,14 +24,17 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final ProjectRepository projectRepository;
+    private final ProjectMemberRepository projectMemberRepository;
 
     public TaskService(TaskRepository taskRepository,
                        UserRepository userRepository,
-                       ProjectRepository projectRepository){
+                       ProjectRepository projectRepository,
+                       ProjectMemberRepository projectMemberRepository){
 
         this.userRepository = userRepository;
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
+        this.projectMemberRepository = projectMemberRepository;
     }
     public Page<Task> findAll(
             Long projectId,
@@ -116,12 +120,17 @@ public class TaskService {
                        TaskStatus status,
                        TaskPriority priority,
                        LocalDate dueDate,
+                       Long assigneeId,
                        String email){
+
         User user = findUserByEmail(email);
         Project project = findProjectByIdAndUser(projectId, user.getId());
+        User assignee = findAssigneeForProject(assigneeId, projectId);
 
         Task task = new Task(title, description);
         task.assignTo(project);
+        task.setCreatedBy(user);
+        task.assignTo(assignee);
         task.updatePlanning(status, priority, dueDate);
 
         if (status == TaskStatus.DONE){
@@ -139,10 +148,14 @@ public class TaskService {
                        TaskStatus status,
                        TaskPriority priority,
                        LocalDate dueDate,
+                       Long assigneeId,
                        String email){
+
         User user = findUserByEmail(email);
         Task task = findTaskByIdAndUser(id, user.getId());
+        User assignee = findAssigneeForProject(assigneeId, task.getProject().getId());
 
+        task.assignTo(assignee);
         task.updateDetails(title, description);
         task.updatePlanning(status, priority, dueDate);
 
@@ -200,6 +213,26 @@ public class TaskService {
     private Task findTaskByIdAndUser(Long id, Long userId){
         return taskRepository.findByIdAndProjectUserId(id, userId)
                 .orElseThrow(() -> new TaskNotFoundException(id));
+    }
+    private User findAssigneeForProject(Long assigneeId, Long projectId) {
+        if (assigneeId == null){
+            return null;
+        }
+
+        User assignee = userRepository.findById(assigneeId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Assignee not found"
+                ));
+
+        if (!projectMemberRepository.existsByProjectIdAndUserId(projectId, assigneeId)){
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Assignee must be a member of the project"
+            );
+        }
+
+        return assignee;
     }
 
 }

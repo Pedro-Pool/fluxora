@@ -5,12 +5,13 @@ import com.fluxora.entity.ProjectRole;
 import com.fluxora.entity.User;
 import com.fluxora.repository.ProjectMemberRepository;
 import com.fluxora.repository.UserRepository;
+import com.fluxora.validation.project.ProjectPermissionValidator;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.util.List;
 
 @Service
 @Transactional(readOnly = true)
@@ -29,10 +30,10 @@ public class ProjectMemberService {
         this.permissionValidator = permissionValidator;
     }
 
-    public List<ProjectMember> findMembers(Long projectId, String email){
+    public Page<ProjectMember> findMembers(Long projectId, String email, Pageable pageable){
         permissionValidator.validateMembership(projectId, email);
 
-        return projectMemberRepository.findByProjectId(projectId);
+        return projectMemberRepository.findByProjectId(projectId, pageable);
     }
     private User findInvitedUserByEmail(String email){
         return userRepository.findByEmail(email)
@@ -70,6 +71,33 @@ public class ProjectMemberService {
         requesterMembership.getProject().addMember(newMember);
 
         return projectMemberRepository.save(newMember);
+    }
+    @Transactional
+    public void removeMember(
+            Long projectId,
+            Long memberId,
+            String requesterEmail
+    ) {
+        ProjectMember requesterMembership =
+                permissionValidator.validateMembership(projectId, requesterEmail);
+
+        permissionValidator.validateOwner(requesterMembership);
+
+        ProjectMember targetMember =
+                projectMemberRepository.findByIdAndProjectId(memberId, projectId)
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Project member not found"
+                        ));
+
+        if (targetMember.getRole() == ProjectRole.OWNER){
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "The project owner cannot be removed"
+            );
+        }
+
+        projectMemberRepository.delete(targetMember);
     }
     @Transactional
     public ProjectMember changeRole(

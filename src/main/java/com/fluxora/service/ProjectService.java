@@ -7,12 +7,13 @@ import com.fluxora.entity.User;
 import com.fluxora.repository.ProjectMemberRepository;
 import com.fluxora.repository.ProjectRepository;
 import com.fluxora.repository.UserRepository;
+import com.fluxora.validation.project.ProjectPermissionValidator;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.util.List;
 
 @Service
 @Transactional(readOnly = true)
@@ -24,17 +25,22 @@ public class ProjectService {
 
     private final ProjectMemberRepository projectMemberRepository;
 
+    private final ProjectPermissionValidator permissionValidator;
+
     public ProjectService(
             ProjectRepository projectRepository,
             UserRepository userRepository,
-            ProjectMemberRepository projectMemberRepository) {
+            ProjectMemberRepository projectMemberRepository,
+            ProjectPermissionValidator permissionValidator) {
+
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
         this.projectMemberRepository = projectMemberRepository;
+        this.permissionValidator = permissionValidator;
     }
-    public List<Project> findAll(String email){
+    public Page<Project> findAll(String email, Pageable pageable){
         User user = findUserByEmail(email);
-        return projectRepository.findAllByUserId(user.getId());
+        return projectRepository.findDistinctByMembers_User_Id(user.getId(), pageable);
     }
     public Project findById(Long id, String email){
         User user = findUserByEmail(email);
@@ -63,8 +69,16 @@ public class ProjectService {
     @Transactional
     public Project update(Long id, String name, String description, String email){
         User user = findUserByEmail(email);
-
         Project project = findProjectByIdAndUser(id, user.getId());
+
+        ProjectMember membership = projectMemberRepository
+                .findByProjectIdAndUserId(id, user.getId())
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Project not found"
+                        ));
+
+        permissionValidator.validateCanUpdateProject(membership);
 
         project.updateDetails(name, description);
 
@@ -75,6 +89,19 @@ public class ProjectService {
         User user = findUserByEmail(email);
         Project project = findProjectByIdAndUser(id, user.getId());
 
+        ProjectMember membership = projectMemberRepository
+                .findByProjectIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Project not found"
+                ));
+
+        permissionValidator.validateCanDeleteProject(membership);
+
+        projectMemberRepository.deleteAll(
+                projectMemberRepository.findByProjectId(id)
+        );
+
         projectRepository.delete(project);
     }
 
@@ -84,7 +111,7 @@ public class ProjectService {
                         (HttpStatus.UNAUTHORIZED, "Authenticate user not found"));
     }
     private Project findProjectByIdAndUser(Long id, Long userId){
-        return projectRepository.findByIdAndUserId(id, userId)
+        return projectRepository.findByIdAndMembers_User_Id(id, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
     }
 }

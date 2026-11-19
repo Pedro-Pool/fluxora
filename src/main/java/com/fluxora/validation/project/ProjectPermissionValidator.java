@@ -1,9 +1,10 @@
-package com.fluxora.service;
+package com.fluxora.validation.project;
 
 import com.fluxora.entity.ProjectMember;
 import com.fluxora.entity.ProjectRole;
 
 public interface ProjectPermissionValidator {
+
     ProjectMember validateMembership(
             Long projectId,
             String requesterEmail
@@ -14,4 +15,7 @@ public interface ProjectPermissionValidator {
             ProjectMember requesterMembership,
             ProjectRole role
     );
+    void validateCanUpdateProject(ProjectMember membership);
+
+    void validateCanDeleteProject(ProjectMember membership);
 }

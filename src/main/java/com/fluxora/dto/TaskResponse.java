@@ -16,7 +16,13 @@ public record TaskResponse(
     LocalDate dueDate,
     LocalDateTime createdAt,
     LocalDateTime updateAt,
-    LocalDateTime completedAt
+    LocalDateTime completedAt,
+    Long assigneeId,
+    String assigneeName,
+    String assigneeEmail,
+    Long createdById,
+    String createdByName,
+    String createdByEmail
 ) {
     public static TaskResponse from(Task task){
         return new TaskResponse(
@@ -28,7 +34,13 @@ public record TaskResponse(
                 task.getDueDate(),
                 task.getCreatedAt(),
                 task.getUpdateAt(),
-                task.getCompletedAt()
+                task.getCompletedAt(),
+                task.getAssignee() != null ? task.getAssignee().getId() : null,
+                task.getAssignee() != null ? task.getAssignee().getName() : null,
+                task.getAssignee() != null ? task.getAssignee().getEmail() : null,
+                task.getCreatedBy().getId(),
+                task.getCreatedBy().getName(),
+                task.getCreatedBy().getEmail()
         );
     }
 }

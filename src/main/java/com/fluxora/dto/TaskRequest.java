@@ -19,9 +19,11 @@ public record TaskRequest(
 
     TaskPriority priority,
 
-    LocalDate dueDate
+    LocalDate dueDate,
+
+    Long assigneeId
 ){
     public TaskRequest(String title, String description){
-        this(title, description, null, null, null);
+        this(title, description, null, null, null,null);
     }
 }

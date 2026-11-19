@@ -6,6 +6,7 @@ import com.fluxora.entity.ProjectRole;
 import com.fluxora.entity.User;
 import com.fluxora.repository.ProjectMemberRepository;
 import com.fluxora.repository.UserRepository;
+import com.fluxora.validation.project.ProjectPermissionValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
@@ -61,24 +66,28 @@ class ProjectMemberServiceTest {
     @Test
     @DisplayName("Should find all members of a project")
     void test_01(){
+        Pageable pageable = PageRequest.of(0, 10);
+
         when(projectPermissionValidator.validateMembership(PROJECT_ID, email)).thenReturn(member);
 
-        when(projectMemberRepository.findByProjectId(PROJECT_ID)).thenReturn(List.of(member));
+        when(projectMemberRepository.findByProjectId(PROJECT_ID, pageable)).thenReturn(new PageImpl<>(List.of(member)));
 
-        List<ProjectMember> members = projectMemberService.findMembers(PROJECT_ID, email);
+        Page<ProjectMember> members = projectMemberService.findMembers(PROJECT_ID, email, pageable);
 
-        assertEquals(1, members.size());
-        assertSame(member, members.getFirst());
-        assertEquals(ProjectRole.OWNER, members.getFirst().getRole());
+        assertEquals(1, members.getTotalElements());
+        assertSame(member, members.getContent().getFirst());
+        assertEquals(ProjectRole.OWNER, members.getContent().getFirst().getRole());
 
         verify(projectPermissionValidator).validateMembership(PROJECT_ID, email);
-        verify(projectMemberRepository).findByProjectId(PROJECT_ID);
+        verify(projectMemberRepository).findByProjectId(PROJECT_ID, pageable);
 
         verifyNoInteractions(userRepository);
     }
     @Test
     @DisplayName("Should throw 404 when user is not a project member")
     void test_02(){
+        Pageable pageable = PageRequest.of(0, 10);
+
         when(projectPermissionValidator.validateMembership(PROJECT_ID, email))
                 .thenThrow(new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
@@ -87,18 +96,20 @@ class ProjectMemberServiceTest {
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> projectMemberService.findMembers(PROJECT_ID, email)
+                () -> projectMemberService.findMembers(PROJECT_ID, email, pageable)
         );
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
 
         verify(projectPermissionValidator).validateMembership(PROJECT_ID, email);
 
-        verify(projectMemberRepository, never()).findByProjectId(anyLong());
+        verify(projectMemberRepository, never()).findByProjectId(anyLong(), eq(pageable));
         verifyNoInteractions(userRepository);
     }
     @Test
     @DisplayName("Should throw 401 when authenticated user is not found")
     void test_03(){
+        Pageable pageable = PageRequest.of(0, 10);
+
         when(projectPermissionValidator.validateMembership(PROJECT_ID, email))
                 .thenThrow(new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED,
@@ -107,7 +118,7 @@ class ProjectMemberServiceTest {
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> projectMemberService.findMembers(PROJECT_ID, email)
+                () -> projectMemberService.findMembers(PROJECT_ID, email, pageable)
         );
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
 
@@ -119,6 +130,8 @@ class ProjectMemberServiceTest {
     @Test
     @DisplayName("Should return all projects members")
     void test_04(){
+        Pageable pageable = PageRequest.of(0, 10);
+
         User anotherUser = new User(
                 "another user",
                 "another@fluxora.com",
@@ -131,16 +144,17 @@ class ProjectMemberServiceTest {
         );
 
         when(projectPermissionValidator.validateMembership(PROJECT_ID, email)).thenReturn(member);
-        when(projectMemberRepository.findByProjectId(PROJECT_ID)).thenReturn(List.of(member, anotherMember));
+        when(projectMemberRepository.findByProjectId(PROJECT_ID, pageable))
+                .thenReturn(new PageImpl<>(List.of(member, anotherMember)));
 
-        List<ProjectMember> members = projectMemberService.findMembers(PROJECT_ID, email);
+        Page<ProjectMember> members = projectMemberService.findMembers(PROJECT_ID, email, pageable);
 
-        assertEquals(2, members.size());
-        assertSame(member, members.get(0));
-        assertSame(anotherMember, members.get(1));
+        assertEquals(2, members.getTotalElements());
+        assertSame(member, members.getContent().getFirst());
+        assertSame(anotherMember, members.getContent().get(1));
 
         verify(projectPermissionValidator).validateMembership(PROJECT_ID, email);
-        verify(projectMemberRepository).findByProjectId(PROJECT_ID);
+        verify(projectMemberRepository).findByProjectId(PROJECT_ID, pageable);
 
         verifyNoInteractions(userRepository);
     }
@@ -527,5 +541,155 @@ class ProjectMemberServiceTest {
         verify(projectMemberRepository, never()).existsByProjectIdAndUserId(anyLong(), anyLong());
 
         verify(projectMemberRepository, never()).save(any(ProjectMember.class));
+    }
+    @Test
+    @DisplayName("Should allow owner to remove an ADMIN member")
+    void test_16() {
+        ProjectMember admin = new ProjectMember(
+                project, user, ProjectRole.ADMIN
+        );
+        ReflectionTestUtils.setField(admin, "id", 20L);
+
+        when(projectPermissionValidator.validateMembership(PROJECT_ID, email))
+                .thenReturn(member);
+
+        when(projectMemberRepository.findByIdAndProjectId(20L, PROJECT_ID))
+                .thenReturn(Optional.of(admin));
+
+        projectMemberService.removeMember(PROJECT_ID, 20L, email);
+
+        verify(projectPermissionValidator).validateMembership(PROJECT_ID, email);
+        verify(projectPermissionValidator).validateOwner(member);
+        verify(projectMemberRepository).findByIdAndProjectId(20L, PROJECT_ID);
+        verify(projectMemberRepository).delete(admin);
+    }
+    @Test
+    @DisplayName("Should allow owner to remove a MEMBER")
+    void test_17() {
+        ProjectMember targetMember = new ProjectMember(
+                project, user, ProjectRole.MEMBER
+        );
+
+        ReflectionTestUtils.setField(targetMember, "id", 21L);
+
+        when(projectPermissionValidator.validateMembership(PROJECT_ID, email))
+                .thenReturn(member);
+
+        when(projectMemberRepository.findByIdAndProjectId(21L, PROJECT_ID))
+                .thenReturn(Optional.of(targetMember));
+
+        projectMemberService.removeMember(PROJECT_ID, 21L, email);
+
+        verify(projectPermissionValidator).validateMembership(PROJECT_ID, email);
+        verify(projectPermissionValidator).validateOwner(member);
+        verify(projectMemberRepository).delete(targetMember);
+    }
+    @Test
+    @DisplayName("Should prevent owner from removing another OWNER")
+    void test_18() {
+        ProjectMember targetOwner = new ProjectMember(
+                project, user, ProjectRole.OWNER
+        );
+
+        ReflectionTestUtils.setField(targetOwner, "id", 22L);
+
+        when(projectPermissionValidator.validateMembership(PROJECT_ID, email))
+                .thenReturn(member);
+
+        when(projectMemberRepository.findByIdAndProjectId(22L, PROJECT_ID))
+                .thenReturn(Optional.of(targetOwner));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> projectMemberService.removeMember(PROJECT_ID, 22L, email)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+
+        verify(projectPermissionValidator).validateOwner(member);
+        verify(projectMemberRepository).findByIdAndProjectId(22L, PROJECT_ID);
+        verify(projectMemberRepository, never()).delete(any(ProjectMember.class));
+    }
+    @Test
+    @DisplayName("Should prevent ADMIN from removing members")
+    void test_19() {
+        ProjectMember admin = new ProjectMember(
+                project, user, ProjectRole.ADMIN
+        );
+
+        when(projectPermissionValidator.validateMembership(PROJECT_ID, email))
+                .thenReturn(admin);
+
+        doThrow(new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "Only the project owner can perform this action"
+        )).when(projectPermissionValidator).validateOwner(admin);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> projectMemberService.removeMember(PROJECT_ID, 20L, email)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+
+        verify(projectPermissionValidator).validateMembership(PROJECT_ID, email);
+        verify(projectPermissionValidator).validateOwner(admin);
+
+        verify(projectMemberRepository, never())
+                .findByIdAndProjectId(anyLong(), anyLong());
+
+        verify(projectMemberRepository, never()).delete(any(ProjectMember.class));
+    }
+    @Test
+    @DisplayName("Should prevent MEMBER from removing members")
+    void test_20() {
+        ProjectMember regularMember = new ProjectMember(
+                project, user, ProjectRole.MEMBER
+        );
+
+        when(projectPermissionValidator.validateMembership(PROJECT_ID, email))
+                .thenReturn(regularMember);
+
+        doThrow(new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "Only the project owner can perform this action"
+        )).when(projectPermissionValidator).validateOwner(regularMember);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> projectMemberService.removeMember(PROJECT_ID, 20L, email)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+
+        verify(projectPermissionValidator).validateMembership(PROJECT_ID, email);
+        verify(projectPermissionValidator).validateOwner(regularMember);
+
+        verify(projectMemberRepository, never())
+                .findByIdAndProjectId(anyLong(), anyLong());
+
+        verify(projectMemberRepository, never()).delete(any(ProjectMember.class));
+    }
+    @Test
+    @DisplayName("Should return 404 when member does not belong to the project")
+    void test_21() {
+        when(projectPermissionValidator.validateMembership(PROJECT_ID, email))
+                .thenReturn(member);
+
+        when(projectMemberRepository.findByIdAndProjectId(23L, PROJECT_ID))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> projectMemberService.removeMember(PROJECT_ID, 23L, email)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+
+        verify(projectPermissionValidator).validateMembership(PROJECT_ID, email);
+        verify(projectPermissionValidator).validateOwner(member);
+
+        verify(projectMemberRepository).findByIdAndProjectId(23L, PROJECT_ID);
+        verify(projectMemberRepository, never()).delete(any(ProjectMember.class));
     }
 }

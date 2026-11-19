@@ -45,6 +45,7 @@ public class TaskController {
                 request.status(),
                 request.priority(),
                 request.dueDate(),
+                request.assigneeId(),
                 authentication.getName());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(TaskResponse.from(task));
@@ -155,6 +156,7 @@ public class TaskController {
                 request.status(),
                 request.priority(),
                 request.dueDate(),
+                request.assigneeId(),
                 authentication.getName());
 
         return ResponseEntity.ok(TaskResponse.from(task));

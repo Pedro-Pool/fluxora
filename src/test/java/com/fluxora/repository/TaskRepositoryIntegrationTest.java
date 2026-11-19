@@ -73,6 +73,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
     ){
         Task task = new Task(title, "Integration test task");
         task.assignTo(taskProject);
+        task.setCreatedBy(owner);
         task.updatePlanning(status,priority, dueDate);
 
         entityManager.persist(task);

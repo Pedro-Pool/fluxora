@@ -5,6 +5,7 @@ import com.fluxora.dto.TaskStatisticsResponse;
 import com.fluxora.entity.Task;
 import com.fluxora.entity.TaskPriority;
 import com.fluxora.entity.TaskStatus;
+import com.fluxora.entity.User;
 import com.fluxora.exception.TaskNotFoundException;
 import com.fluxora.service.CategoryService;
 import com.fluxora.service.ProjectService;
@@ -56,17 +57,31 @@ class TaskControllerTest {
     private UsernamePasswordAuthenticationToken authentication(){
         return new UsernamePasswordAuthenticationToken(EMAIL, "password");
     }
+    private Task createTask(String title, String description) {
+        Task task = new Task(title, description);
+
+        User creator = new User(
+                "Test User",
+                EMAIL,
+                "hashedPassword"
+        );
+
+        task.setCreatedBy(creator);
+
+        return task;
+    }
 
     @Test
     @WithMockUser(username = EMAIL)
     @DisplayName("It must create a task and return 201 Created.")
     void test_01() throws Exception{
-        Task task = new Task("Study java", "Practice tests");
+        Task task = createTask("Study java", "Practice tests");
 
         when(taskService.create(
                 eq(PROJECT_ID),
                 eq("Study java"),
                 eq("Practice tests"),
+                isNull(),
                 isNull(),
                 isNull(),
                 isNull(),
@@ -94,6 +109,7 @@ class TaskControllerTest {
                 null,
                 null,
                 null,
+                null,
                 EMAIL);
     }
     @Test
@@ -114,8 +130,8 @@ class TaskControllerTest {
                 .thenAnswer(invocation -> {Pageable pageable = invocation.getArgument(7);
                     return new PageImpl<>(
                             List.of(
-                                    new Task("Study java", null),
-                                    new Task("Practice spring", null)
+                                    createTask("Study java", null),
+                                    createTask("Practice spring", null)
                             ),
                             pageable,
                             2
@@ -146,7 +162,7 @@ class TaskControllerTest {
     @WithMockUser(username = EMAIL)
     @DisplayName("view an existing task")
     void test_03() throws Exception{
-        when(taskService.findById(1L, EMAIL)).thenReturn(new Task("Study java", null));
+        when(taskService.findById(1L, EMAIL)).thenReturn(createTask("Study java", null));
 
         mockMvc.perform(get("/api/tasks/1")
                         .principal(authentication()))
@@ -202,7 +218,7 @@ class TaskControllerTest {
     @WithMockUser(username = EMAIL)
     @DisplayName("Should update a task and return 200 OK")
     void test_07() throws Exception{
-        Task task = new Task("Updated task", "Updated description");
+        Task task = createTask("Updated task", "Updated description");
 
         when(taskService.update(
                 eq(1L),
@@ -211,6 +227,7 @@ class TaskControllerTest {
                 eq(TaskStatus.IN_PROGRESS),
                 eq(TaskPriority.HIGH),
                 isNull(),
+                eq(2L),
                 eq(EMAIL)
         )).thenReturn(task);
 
@@ -222,7 +239,8 @@ class TaskControllerTest {
                       "title": "Updated task",
                       "description": "Updated description",
                       "status": "IN_PROGRESS",
-                      "priority": "HIGH"
+                      "priority": "HIGH",
+                      "assigneeId": 2
                     }
                     """))
                 .andExpect(status().isOk())
@@ -236,6 +254,7 @@ class TaskControllerTest {
                 TaskStatus.IN_PROGRESS,
                 TaskPriority.HIGH,
                 null,
+                2L,
                 EMAIL
         );
     }
@@ -243,7 +262,7 @@ class TaskControllerTest {
     @WithMockUser(username = EMAIL)
     @DisplayName("Should completed a task and return 200 OK")
     void test_08() throws Exception{
-        Task task = new Task("Study java", "Practice tests");
+        Task task = createTask("Study java", "Practice tests");
         task.completed();
 
         when(taskService.complete(1L, EMAIL)).thenReturn(task);
@@ -260,7 +279,7 @@ class TaskControllerTest {
     @WithMockUser(username = EMAIL)
     @DisplayName("Should reopen a task and return 200 OK")
     void test_09() throws Exception{
-        Task task = new Task("Study java", "Practice tests");
+        Task task = createTask("Study java", "Practice tests");
         task.reopen();
 
         when(taskService.reopen(1L, EMAIL)).thenReturn(task);
@@ -276,7 +295,7 @@ class TaskControllerTest {
     @WithMockUser(username = EMAIL)
     @DisplayName("Should cancel a task and return 200 OK")
     void test_10() throws Exception{
-        Task task = new Task("Study java", "Practice tests");
+        Task task = createTask("Study java", "Practice tests");
         task.cancel();
 
         when(taskService.cancel(1L, EMAIL)).thenReturn(task);
@@ -312,6 +331,7 @@ class TaskControllerTest {
                 eq(TaskStatus.TODO),
                 eq(TaskPriority.MEDIUM),
                 isNull(),
+                isNull(),
                 eq(EMAIL)
         )).thenThrow(new TaskNotFoundException(99L));
 
@@ -335,6 +355,7 @@ class TaskControllerTest {
                 TaskStatus.TODO,
                 TaskPriority.MEDIUM,
                 null,
+                null,
                 EMAIL
         );
     }
@@ -357,7 +378,7 @@ class TaskControllerTest {
                 null,
                 pageable
         )).thenReturn(new PageImpl<>(
-                List.of(new Task("Filtered Task", null)),
+                List.of(createTask("Filtered Task", null)),
                 pageable,
                 1));
 
@@ -400,7 +421,7 @@ class TaskControllerTest {
         )).thenAnswer(invocation -> {
             Pageable receivedPageable = invocation.getArgument(7);
             return new PageImpl<>(
-                    List.of(new Task("Task with java category", null)),
+                    List.of(createTask("Task with java category", null)),
                     receivedPageable,
                     1);
         });
@@ -483,7 +504,7 @@ class TaskControllerTest {
     @DisplayName("Should return overdue tasks")
     void test_20() throws Exception{
         Page<Task> page = new PageImpl<>(
-                List.of(new Task("Overdue task", null)),
+                List.of(createTask("Overdue task", null)),
                 PageRequest.of(0,10),
                 1
         );
@@ -529,7 +550,7 @@ class TaskControllerTest {
     @DisplayName("Should return tasks due today")
     void test_22() throws Exception{
         Page<Task> page = new PageImpl<>(
-                List.of(new Task("Task due today", null)),
+                List.of(createTask("Task due today", null)),
                 PageRequest.of(0,10),
                 1
         );
@@ -575,7 +596,7 @@ class TaskControllerTest {
     @DisplayName("Should return upcoming tasks using the default period")
     void test_24() throws Exception{
         Page<Task> page = new PageImpl<>(
-                List.of(new Task("Upcoming task", null)),
+                List.of(createTask("Upcoming task", null)),
                 PageRequest.of(0,10),
                 1
         );
@@ -603,7 +624,7 @@ class TaskControllerTest {
     @DisplayName("Should return upcoming tasks using a custom period")
     void test_25() throws Exception{
         Page<Task> page = new PageImpl<>(
-                List.of(new Task("Upcoming task", null)),
+                List.of(createTask("Upcoming task", null)),
                 PageRequest.of(0,10),
                 1
         );
@@ -743,5 +764,46 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.overdueTasks").value(0));
 
         verify(taskService).findTaskStatistics(EMAIL);
+    }
+    @Test
+    @WithMockUser(username = EMAIL)
+    @DisplayName("It must create a task with the provided assignee")
+    void test_31() throws Exception {
+        Task task = createTask("Study java", "Practice tests");
+
+        when(taskService.create(
+                eq(PROJECT_ID),
+                eq("Study java"),
+                eq("Practice tests"),
+                isNull(),
+                isNull(),
+                isNull(),
+                eq(2L),
+                eq(EMAIL)
+        )).thenReturn(task);
+
+        mockMvc.perform(post("/api/projects/{projectId}/tasks", PROJECT_ID)
+                        .principal(authentication())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "title": "Study java",
+                              "description": "Practice tests",
+                              "assigneeId": 2
+                            }
+                            """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("Study java"));
+
+        verify(taskService).create(
+                PROJECT_ID,
+                "Study java",
+                "Practice tests",
+                null,
+                null,
+                null,
+                2L,
+                EMAIL
+        );
     }
 }

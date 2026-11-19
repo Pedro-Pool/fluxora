@@ -2,6 +2,7 @@ package com.fluxora.service;
 
 import com.fluxora.dto.TaskStatisticsResponse;
 import com.fluxora.entity.*;
+import com.fluxora.repository.ProjectMemberRepository;
 import com.fluxora.repository.ProjectRepository;
 import com.fluxora.repository.TaskRepository;
 import com.fluxora.exception.TaskNotFoundException;
@@ -38,6 +39,9 @@ class TaskServiceTest {
 
     @Mock
     private ProjectRepository projectRepository;
+
+    @Mock
+    private ProjectMemberRepository projectMemberRepository;
 
     @InjectMocks
     private TaskService taskService;
@@ -86,6 +90,7 @@ class TaskServiceTest {
                 TaskStatus.TODO,
                 TaskPriority.MEDIUM,
                 null,
+                null,
                 email);
 
         assertEquals("Study java", createdTask.getTitle());
@@ -127,7 +132,7 @@ class TaskServiceTest {
                 pageable);
 
         assertEquals(1, tasks.getTotalElements());
-        assertEquals("Study java", tasks.getContent().get(0).getTitle());
+        assertEquals("Study java", tasks.getContent().getFirst().getTitle());
 
         verify(taskRepository).findAllWithFilters(
                 PROJECT_ID,
@@ -222,6 +227,7 @@ class TaskServiceTest {
                         TaskStatus.TODO,
                         TaskPriority.MEDIUM,
                         null,
+                        null,
                         email));
 
         verify(taskRepository).findByIdAndProjectUserId(99L, USER_ID);
@@ -279,6 +285,7 @@ class TaskServiceTest {
                 null,
                 null,
                 null,
+                null,
                 email);
 
         assertEquals(TaskStatus.TODO, createdTask.getStatus());
@@ -302,6 +309,7 @@ class TaskServiceTest {
                 TaskStatus.DONE,
                 TaskPriority.HIGH,
                 LocalDate.of(2026, 10, 30),
+                null,
                 email);
 
         assertEquals(TaskStatus.DONE, createdTask.getStatus());
@@ -388,6 +396,7 @@ class TaskServiceTest {
                 TaskStatus.DONE,
                 TaskPriority.URGENT,
                 LocalDate.of(2026, 10, 30),
+                null,
                 email
         );
         assertEquals("New title", updatedTask.getTitle());
@@ -426,7 +435,7 @@ class TaskServiceTest {
                 pageable);
 
         assertEquals(1, tasks.getTotalElements());
-        assertEquals("Task in progress", tasks.getContent().get(0).getTitle());
+        assertEquals("Task in progress", tasks.getContent().getFirst().getTitle());
 
         verify(taskRepository).findAllWithFilters(
                 PROJECT_ID,
@@ -468,7 +477,7 @@ class TaskServiceTest {
                 pageable);
 
         assertEquals(1, tasks.getTotalElements());
-        assertEquals("High Task", tasks.getContent().get(0).getTitle());
+        assertEquals("High Task", tasks.getContent().getFirst().getTitle());
 
         verify(taskRepository).findAllWithFilters(
                 PROJECT_ID,
@@ -614,7 +623,7 @@ class TaskServiceTest {
         Page<Task> tasks = taskService.findOverdueTasks(email, pageable);
 
         assertEquals(1, tasks.getTotalElements());
-        assertEquals("Overdue task", tasks.getContent().get(0).getTitle());
+        assertEquals("Overdue task", tasks.getContent().getFirst().getTitle());
 
         verify(taskRepository).findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
                 USER_ID,
@@ -669,7 +678,7 @@ class TaskServiceTest {
         Page<Task> tasks = taskService.findTasksDueDate(email, pageable);
 
         assertEquals(1, tasks.getTotalElements());
-        assertEquals("Task due today", tasks.getContent().get(0).getTitle());
+        assertEquals("Task due today", tasks.getContent().getFirst().getTitle());
 
         verify(taskRepository).findAllByProjectUserIdAndDueDateAndStatusNotIn(
                 USER_ID,
@@ -729,7 +738,7 @@ class TaskServiceTest {
         Page<Task> tasks = taskService.findUpComingTask(email, days, pageable);
 
         assertEquals(1, tasks.getTotalElements());
-        assertEquals("Upcoming task", tasks.getContent().get(0).getTitle());
+        assertEquals("Upcoming task", tasks.getContent().getFirst().getTitle());
 
         verify(taskRepository).findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
                 USER_ID,
@@ -790,5 +799,252 @@ class TaskServiceTest {
                 () -> taskService.findTaskStatistics(email));
 
         verify(taskRepository, never()).findTaskStatistics(anyLong());
+    }
+    @Test
+    @DisplayName("It must create a task assigned to a project member")
+    void test_33() {
+        mockAuthenticatedUser();
+        mockOwnerProject();
+
+        User assignee = new User(
+                "Member",
+                "member@email.com",
+                "hashedPassword"
+        );
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(assignee));
+        when(projectMemberRepository.existsByProjectIdAndUserId(PROJECT_ID, 2L))
+                .thenReturn(true);
+        when(taskRepository.save(any(Task.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Task createdTask = taskService.create(
+                PROJECT_ID,
+                "Study Java",
+                "Practice tests",
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                null,
+                2L,
+                email
+        );
+
+        assertSame(assignee, createdTask.getAssignee());
+
+        verify(projectMemberRepository).existsByProjectIdAndUserId(PROJECT_ID, 2L);
+    }
+    @Test
+    @DisplayName("It must create a task assigned to a project member")
+    void test_34() {
+        mockAuthenticatedUser();
+        mockOwnerProject();
+
+        User assignee = new User(
+                "Member",
+                "member@email.com",
+                "hashedPassword"
+        );
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(assignee));
+        when(projectMemberRepository.existsByProjectIdAndUserId(PROJECT_ID, 2L))
+                .thenReturn(true);
+        when(taskRepository.save(any(Task.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Task createdTask = taskService.create(
+                PROJECT_ID,
+                "Study Java",
+                "Practice tests",
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                null,
+                2L,
+                email
+        );
+
+        assertSame(assignee, createdTask.getAssignee());
+
+        verify(projectMemberRepository).existsByProjectIdAndUserId(PROJECT_ID, 2L);
+    }
+    @Test
+    @DisplayName("It must not create a task assigned to a non-member")
+    void test_35() {
+        mockAuthenticatedUser();
+        mockOwnerProject();
+
+        User assignee = new User(
+                "External User",
+                "external@email.com",
+                "hashedPassword"
+        );
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(assignee));
+        when(projectMemberRepository.existsByProjectIdAndUserId(PROJECT_ID, 2L))
+                .thenReturn(false);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> taskService.create(
+                        PROJECT_ID,
+                        "Study Java",
+                        "Practice tests",
+                        TaskStatus.TODO,
+                        TaskPriority.MEDIUM,
+                        null,
+                        2L,
+                        email
+                )
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(taskRepository, never()).save(any(Task.class));
+    }
+    @Test
+    @DisplayName("It must update a task with a valid assignee")
+    void test_36() {
+        mockAuthenticatedUser();
+
+        Task task = new Task("Study Java", "Old description");
+        task.assignTo(project);
+        task.setCreatedBy(user);
+
+        User assignee = new User(
+                "Member",
+                "member@email.com",
+                "hashedPassword"
+        );
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndProjectUserId(15L, USER_ID))
+                .thenReturn(Optional.of(task));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(assignee));
+        when(projectMemberRepository.existsByProjectIdAndUserId(PROJECT_ID, 2L))
+                .thenReturn(true);
+
+        Task updatedTask = taskService.update(
+                15L,
+                "Updated title",
+                "Updated description",
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.HIGH,
+                null,
+                2L,
+                email
+        );
+
+        assertSame(assignee, updatedTask.getAssignee());
+        assertEquals("Updated title", updatedTask.getTitle());
+
+        verify(projectMemberRepository).existsByProjectIdAndUserId(PROJECT_ID, 2L);
+    }
+    @Test
+    @DisplayName("It must remove the assignee from a task")
+    void test_37() {
+        mockAuthenticatedUser();
+
+        Task task = new Task("Study Java", "Description");
+        task.assignTo(project);
+        task.setCreatedBy(user);
+
+        User assignee = new User(
+                "Member",
+                "member@email.com",
+                "hashedPassword"
+        );
+
+        task.assignTo(assignee);
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndProjectUserId(15L, USER_ID))
+                .thenReturn(Optional.of(task));
+
+        Task updatedTask = taskService.update(
+                15L,
+                "Study Java",
+                "Description",
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                null,
+                null,
+                email
+        );
+
+        assertNull(updatedTask.getAssignee());
+
+        verify(projectMemberRepository, never())
+                .existsByProjectIdAndUserId(anyLong(), anyLong());
+    }
+    @Test
+    @DisplayName("It must not update a task with a non-member assignee")
+    void test_38() {
+        mockAuthenticatedUser();
+
+        Task task = new Task("Study Java", "Description");
+        task.assignTo(project);
+        task.setCreatedBy(user);
+
+        User assignee = new User(
+                "External User",
+                "external@email.com",
+                "hashedPassword"
+        );
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(taskRepository.findByIdAndProjectUserId(15L, USER_ID))
+                .thenReturn(Optional.of(task));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(assignee));
+        when(projectMemberRepository.existsByProjectIdAndUserId(PROJECT_ID, 2L))
+                .thenReturn(false);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> taskService.update(
+                        15L,
+                        "Updated title",
+                        "Updated description",
+                        TaskStatus.IN_PROGRESS,
+                        TaskPriority.HIGH,
+                        null,
+                        2L,
+                        email
+                )
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+
+        assertEquals("Study Java", task.getTitle());
+        assertNull(task.getAssignee());
+    }
+    @Test
+    @DisplayName("It must not create a task with a non-existent assignee")
+    void test_39() {
+        mockAuthenticatedUser();
+        mockOwnerProject();
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(userRepository.findById(2L)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> taskService.create(
+                        PROJECT_ID,
+                        "Study Java",
+                        "Practice tests",
+                        TaskStatus.TODO,
+                        TaskPriority.MEDIUM,
+                        null,
+                        2L,
+                        email
+                )
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+
+        verify(taskRepository, never()).save(any(Task.class));
+        verify(projectMemberRepository, never())
+                .existsByProjectIdAndUserId(anyLong(), anyLong());
     }
 }

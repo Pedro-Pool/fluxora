@@ -94,5 +94,62 @@ class TaskTest {
         assertEquals(LocalDate.of(2026, 10, 30), task.getDueDate());
         assertEquals(originalCompletedAt, task.getCompletedAt());
     }
+    @Test
+    @DisplayName("Should assign a user to the task")
+    void test_09(){
+        Task task = new Task("Study Java", null);
+        User assignee = new User("John", "john@email.com", "password");
 
+        task.assignTo(assignee);
+
+        assertEquals(assignee, task.getAssignee());
+    }
+    @Test
+    @DisplayName("Should unassign a user from the task")
+    void test_10(){
+        Task task = new Task("Study Java", null);
+        User assignee = new User("John", "john@email.com", "password");
+
+        task.assignTo(assignee);
+        task.assignTo((User)null);
+
+        assertNull(task.getAssignee());
+    }
+
+    @Test
+    @DisplayName("Should set the task creator")
+    void test_11(){
+        Task task = new Task("Study Java", null);
+        User creator = new User("John", "john@email.com", "password");
+
+        task.setCreatedBy(creator);
+
+        assertEquals(creator, task.getCreatedBy());
+    }
+    @Test
+    @DisplayName("Should reject a null task creator")
+    void test_12(){
+        Task task = new Task("Study Java", null);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> task.setCreatedBy(null)
+        );
+    }
+    @Test
+    @DisplayName("Should prevent changing the task creator")
+    void test_13(){
+        Task task = new Task("Study Java", null);
+        User creator = new User("John", "john@email.com", "password");
+        User anotherUser = new User("Mary", "mary@email.com", "password");
+
+        task.setCreatedBy(creator);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> task.setCreatedBy(anotherUser)
+        );
+
+        assertEquals(creator, task.getCreatedBy());
+    }
 }
