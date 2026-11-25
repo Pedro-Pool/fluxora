@@ -62,6 +62,7 @@ class TaskAuthorizationIntegrationTest {
 
     private User userA;
     private User userB;
+    private User userC;
     private Project projectA;
     private Project projectB;
     private Task taskA;
@@ -69,11 +70,13 @@ class TaskAuthorizationIntegrationTest {
     private Category categoryA;
     private String tokenA;
     private String tokenB;
+    private String tokenC;
 
     @BeforeEach
     void setUp() {
         userA = userService.register("User A", "userA" + UUID.randomUUID() + "@email.com", "passwordUserA");
         userB = userService.register("User B", "userB" + UUID.randomUUID() + "@email.com", "passwordUserB");
+        userC = userService.register("User C", "userC" + UUID.randomUUID() + "@email.com", "passwordUserC");
 
         projectA = projectService.create("Project A", "Project A description", userA.getEmail());
         projectB = projectService.create("Project B", "Project B description", userB.getEmail());
@@ -82,6 +85,7 @@ class TaskAuthorizationIntegrationTest {
 
         tokenA = jwtService.generateToken(userA.getEmail());
         tokenB = jwtService.generateToken(userB.getEmail());
+        tokenC = jwtService.generateToken(userC.getEmail());
 
         taskA = taskService.create(
                 projectA.getId(),
@@ -102,15 +106,22 @@ class TaskAuthorizationIntegrationTest {
                 null,
                 null,
                 userB.getEmail());
+
+        projectMemberRepository.save(new ProjectMember(projectA, userC, ProjectRole.MEMBER));
     }
 
     @AfterEach
     void tearDown() {
-        if (taskA != null && taskA.getId() != null) {
-            taskRepository.deleteById(taskA.getId());
+        if (projectA != null && projectA.getId() != null) {
+            taskRepository.deleteAll(
+                    taskRepository.findAllByProjectId(projectA.getId())
+            );
         }
-        if (taskB != null && taskB.getId() != null) {
-            taskRepository.deleteById(taskB.getId());
+
+        if (projectB != null && projectB.getId() != null) {
+            taskRepository.deleteAll(
+                    taskRepository.findAllByProjectId(projectB.getId())
+            );
         }
 
         if (categoryA != null && categoryA.getId() != null) {
@@ -146,6 +157,9 @@ class TaskAuthorizationIntegrationTest {
         }
         if (userB != null && userB.getId() != null) {
             userRepository.delete(userB);
+        }
+        if (userC != null && userC.getId() != null) {
+            userRepository.delete(userC);
         }
     }
 
@@ -216,7 +230,7 @@ class TaskAuthorizationIntegrationTest {
                                 "Bearer " + tokenB))
                 .andExpect(status().isNotFound());
 
-        assertTrue(taskRepository.findByIdAndProjectUserId(taskA.getId(), userA.getId()).isPresent());
+        assertTrue(taskRepository.findByIdAndProjectMemberUserId(taskA.getId(), userA.getId()).isPresent());
     }
 
     @Test
@@ -227,7 +241,7 @@ class TaskAuthorizationIntegrationTest {
                                 "Bearer " + tokenB))
                 .andExpect(status().isNotFound());
 
-        assertTrue(taskRepository.findByIdAndProjectUserId(taskA.getId(), userA.getId()).isPresent());
+        assertTrue(taskRepository.findByIdAndProjectMemberUserId(taskA.getId(), userA.getId()).isPresent());
     }
 
     @Test
@@ -455,5 +469,138 @@ class TaskAuthorizationIntegrationTest {
                 userB.getId()
         );
         assertEquals(1, categoryCount);
+    }
+    @Test
+    @DisplayName("Should assign a task to a project member")
+    void test_18() throws Exception {
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                    {
+                        "title": "Task private A",
+                        "description": "test",
+                        "status": "TODO",
+                        "priority": "MEDIUM",
+                        "assigneeId": %d
+                    }
+                    """.formatted(userC.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assigneeId").value(userC.getId()))
+                .andExpect(jsonPath("$.assigneeName").value("User C"))
+                .andExpect(jsonPath("$.assigneeEmail").value(userC.getEmail()));
+    }
+    @Test
+    @DisplayName("Should not assign a task to a user who is not a project member")
+    void test_19() throws Exception {
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                    {
+                        "title": "Task private A",
+                        "description": "test",
+                        "status": "TODO",
+                        "priority": "MEDIUM",
+                        "assigneeId": %d
+                    }
+                    """.formatted(userB.getId())))
+                .andExpect(status().isBadRequest());
+
+        Task unchangedTask = taskRepository.findById(taskA.getId()).orElseThrow();
+
+        assertNull(unchangedTask.getAssignee());
+    }
+    @Test
+    @DisplayName("Should remove task assignee")
+    void test_20() throws Exception {
+        taskA.assignTo(userC);
+        taskRepository.save(taskA);
+
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                    {
+                        "title": "Task private A",
+                        "description": "test",
+                        "status": "TODO",
+                        "priority": "MEDIUM",
+                        "assigneeId": null
+                    }
+                    """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assigneeId").doesNotExist());
+
+        Task updatedTask = taskRepository.findById(taskA.getId()).orElseThrow();
+
+        assertNull(updatedTask.getAssignee());
+    }
+    @Test
+    @DisplayName("Should create a task with an assigned project member")
+    void test_21() throws Exception {
+        mockMvc.perform(post("/api/projects/{projectId}/tasks", projectA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                    {
+                        "title": "Assigned task",
+                        "description": "Task assigned during creation",
+                        "status": "TODO",
+                        "priority": "HIGH",
+                        "assigneeId": %d
+                    }
+                    """.formatted(userC.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("Assigned task"))
+                .andExpect(jsonPath("$.assigneeId").value(userC.getId()))
+                .andExpect(jsonPath("$.assigneeName").value("User C"))
+                .andExpect(jsonPath("$.assigneeEmail").value(userC.getEmail()))
+                .andExpect(jsonPath("$.createdById").value(userA.getId()))
+                .andExpect(jsonPath("$.createdByEmail").value(userA.getEmail()));
+    }
+    @Test
+    @DisplayName("Should not allow changing task creator through update")
+    void test_22() throws Exception {
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                    {
+                        "title": "Task private A",
+                        "description": "test",
+                        "status": "TODO",
+                        "priority": "MEDIUM",
+                        "createdById": %d
+                    }
+                    """.formatted(userB.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.createdById").value(userA.getId()))
+                .andExpect(jsonPath("$.createdByEmail").value(userA.getEmail()));
+
+        Task updatedTask = taskRepository.findById(taskA.getId()).orElseThrow();
+
+        assertEquals(userA.getId(), updatedTask.getCreatedBy().getId());
+    }
+    @Test
+    @DisplayName("Should not assign a task to a nonexistent user")
+    void test_23() throws Exception {
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                    {
+                        "title": "Task private A",
+                        "description": "test",
+                        "status": "TODO",
+                        "priority": "MEDIUM",
+                        "assigneeId": 999999
+                    }
+                    """))
+                .andExpect(status().isNotFound());
+
+        Task unchangedTask = taskRepository.findById(taskA.getId()).orElseThrow();
+
+        assertNull(unchangedTask.getAssignee());
     }
 }

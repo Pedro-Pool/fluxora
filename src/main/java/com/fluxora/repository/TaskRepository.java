@@ -11,33 +11,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface TaskRepository extends JpaRepository<Task, Long>{
 
-    Optional<Task> findByIdAndProjectUserId(Long id, Long userId);
-
-    List<Task> findAllByProjectUserId(Long id);
-
-    Page<Task> findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
-            Long userId,
-            LocalDate today,
-            List<TaskStatus> excludedStatuses,
-            Pageable pageable);
-
-    Page<Task> findAllByProjectUserIdAndDueDateAndStatusNotIn(
-            Long userId,
-            LocalDate today,
-            List<TaskStatus> excludedStatuses,
-            Pageable pageable);
-
-    Page<Task> findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
-            Long userId,
-            LocalDate startDate,
-            LocalDate endDate,
-            List<TaskStatus> excludedStatuses,
-            Pageable pageable);
+    List<Task> findAllByProjectId(Long projectId);
 
     @Query(value = """
             SELECT t
@@ -101,11 +81,184 @@ public interface TaskRepository extends JpaRepository<Task, Long>{
                             ELSE NULL
                         END)
                     )
-            FROM Task t
-            WHERE t.project.user.id = :userId
+                FROM Task t
+                WHERE EXISTS (
+                    SELECT pm.id
+                    FROM ProjectMember pm
+                    WHERE pm.project.id = t.project.id
+                      AND pm.user.id = :userId
+                )
             """)
     TaskStatisticsResponse findTaskStatistics(
             @Param("userId") Long userId
     );
 
+    @Query("""
+            SELECT t
+            FROM Task t
+            WHERE t.id = :taskId
+                AND EXISTS (
+                    SELECT pm.id
+                    FROM ProjectMember pm
+                    WHERE pm.project.id = t.project.id
+                        AND pm.user.id = :userId
+                )
+            """)
+    Optional<Task> findByIdAndProjectMemberUserId(
+            @Param("taskId") Long taskId,
+            @Param("userId") Long userId
+    );
+
+    @Query(value = """
+            SELECT t
+            FROM Task t
+            WHERE EXISTS (
+              SELECT pm.id
+              FROM ProjectMember pm
+              WHERE pm.project.id = t.project.id
+                  AND pm.user.id = :userId
+            )""",
+            countQuery = """
+            SELECT COUNT(t)
+            FROM Task t
+            WHERE EXISTS (
+                SELECT pm.id
+                FROM ProjectMember pm
+                WHERE pm.project.id = t.project.id
+                    AND pm.user.id = :userId
+            )
+""")
+    Page<Task> findAllByProjectMemberUserId(
+            @Param("userId") Long userId,
+            Pageable pageable
+    );
+
+    @Query("""
+        SELECT t
+        FROM Task t
+        WHERE EXISTS (
+            SELECT pm.id
+            FROM ProjectMember pm
+            WHERE pm.project.id = t.project.id
+              AND pm.user.id = :userId
+        )
+        """)
+    List<Task> findAllTasksByProjectMemberUserId(
+            @Param("userId") Long userId
+    );
+
+    @Query(value = """
+            SELECT t
+            FROM Task t
+            WHERE t.project.id = :projectId
+                AND EXISTS (
+                SELECT pm.id
+                FROM ProjectMember pm
+                WHERE pm.project.id = t.project.id
+                    AND pm.user.id = :userId
+                )
+                AND (:status IS NULL OR t.status = :status)
+                AND (:priority IS NULL OR t.priority = :priority)
+                AND (CAST(:dueDateFrom AS date) IS NULL OR t.dueDate >= :dueDateFrom)
+                AND (CAST(:dueDateTo AS date) IS NULL OR t.dueDate <= :dueDateTo)
+                AND (:categoryId IS NULL OR EXISTS (
+                    SELECT c.id
+                    FROM Task taskWithCategory
+                    JOIN taskWithCategory.categories c
+                    WHERE taskWithCategory.id = t.id
+                        AND c.id = :categoryId
+                        AND c.user.id = :userId
+                ))
+            """,
+    countQuery = """
+            SELECT COUNT(t)
+            FROM Task t
+            WHERE t.project.id = :projectId
+                AND EXISTS (
+                SELECT pm.id
+                FROM ProjectMember pm
+                WHERE pm.project.id = t.project.id
+                    AND pm.user.id = :userId
+                )
+                AND (:status IS NULL OR t.status = :status)
+                AND (:priority IS NULL OR t.priority = :priority)
+                AND (CAST(:dueDateFrom AS date) IS NULL OR t.dueDate >= :dueDateFrom)
+                AND (CAST(:dueDateTo AS date) IS NULL OR t.dueDate <= :dueDateTo)
+                AND (:categoryId IS NULL OR EXISTS (
+                    SELECT c.id
+                    FROM Task taskWithCategory
+                    JOIN taskWithCategory.categories c
+                    WHERE taskWithCategory.id = t.id
+                        AND c.id = :categoryId
+                        AND c.user.id = :userId
+                ))
+            """)
+    Page<Task> findAllWithFiltersByProjectMember(
+            @Param("projectId") Long projectId,
+            @Param("userId") Long userId,
+            @Param("status") TaskStatus status,
+            @Param("priority") TaskPriority priority,
+            @Param("dueDateFrom")LocalDate dueDateFrom,
+            @Param("dueDateTo") LocalDate dueDateTo,
+            @Param("categoryId") Long categoryId,
+            Pageable pageable
+    );
+
+    @Query("""
+           SELECT t
+           FROM Task t
+           WHERE t.dueDate < :dueDate
+                AND t.status NOT IN :statuses
+                AND EXISTS (
+                    SELECT pm.id
+                    FROM ProjectMember pm
+                    WHERE pm.project.id = t.project.id
+                        AND pm.user.id = :userId
+                )
+           """)
+    Page<Task> findOverdueTasksByProjectMember(
+            @Param("userId") Long userId,
+            @Param("dueDate") LocalDate dueDate,
+            @Param("statuses") Collection<TaskStatus> statuses,
+            Pageable pageable
+    );
+
+    @Query("""
+           SELECT t
+           FROM Task t
+           WHERE t.dueDate = :dueDate
+                AND t.status NOT IN :statuses
+                AND EXISTS (
+                    SELECT pm.id
+                    FROM ProjectMember pm
+                    WHERE pm.project.id = t.project.id
+                        AND pm.user.id = :userId
+                )
+           """)
+    Page<Task> findTasksDueTodayByProjectMember(
+            @Param("userId") Long userId,
+            @Param("dueDate") LocalDate dueDate,
+            @Param("statuses") Collection<TaskStatus> statuses,
+            Pageable pageable
+    );
+
+    @Query("""
+           SELECT t
+           FROM Task t
+           WHERE t.dueDate BETWEEN :startDate AND :endDate
+                AND t.status NOT IN :statuses
+                AND EXISTS (
+                    SELECT pm.id
+                    FROM ProjectMember pm
+                    WHERE pm.project.id = t.project.id
+                        AND pm.user.id = :userId
+                )
+           """)
+    Page<Task> findUpcomingTasksByProjectMember(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("statuses") Collection<TaskStatus> statuses,
+            Pageable pageable
+    );
 }

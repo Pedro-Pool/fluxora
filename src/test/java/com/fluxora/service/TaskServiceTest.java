@@ -69,8 +69,16 @@ class TaskServiceTest {
     private void mockAuthenticatedUser(){
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
     }
+
     private void mockOwnerProject(){
         when(projectRepository.findByIdAndUserId(PROJECT_ID, USER_ID)).thenReturn(Optional.of(project));
+    }
+
+    private void mockProjectMembership(){
+        ProjectMember membership = new ProjectMember(project, user, ProjectRole.OWNER);
+
+        when(projectMemberRepository.findByProjectIdAndUserId(PROJECT_ID, USER_ID))
+                .thenReturn(Optional.of(membership));
     }
 
 
@@ -78,9 +86,8 @@ class TaskServiceTest {
     @DisplayName("It must create a task using the provided data")
     void test_01(){
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
-        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Task createdTask = taskService.create(
@@ -97,19 +104,19 @@ class TaskServiceTest {
         assertFalse(createdTask.isCompleted());
         assertSame(project, createdTask.getProject());
 
-        verify(projectRepository).findByIdAndUserId(PROJECT_ID, USER_ID);
+        verify(projectMemberRepository).findByProjectIdAndUserId(PROJECT_ID, USER_ID);
         verify(taskRepository).save(any(Task.class));
     }
     @Test
     @DisplayName("Should find all tasks for user")
     void test_02(){
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         Task task = new Task("Study java", null);
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findAllWithFilters(
+        when(taskRepository.findAllWithFiltersByProjectMember(
                 PROJECT_ID,
                 user.getId(),
                 null,
@@ -134,7 +141,7 @@ class TaskServiceTest {
         assertEquals(1, tasks.getTotalElements());
         assertEquals("Study java", tasks.getContent().getFirst().getTitle());
 
-        verify(taskRepository).findAllWithFilters(
+        verify(taskRepository).findAllWithFiltersByProjectMember(
                 PROJECT_ID,
                 USER_ID,
                 null,
@@ -152,13 +159,13 @@ class TaskServiceTest {
         Task task = new Task("Study java", null);
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(1L, USER_ID)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID)).thenReturn(Optional.of(task));
 
         Task foundTask = taskService.findById(1L, email);
 
         assertSame(task, foundTask);
 
-        verify(taskRepository).findByIdAndProjectUserId(1L, USER_ID);
+        verify(taskRepository).findByIdAndProjectMemberUserId(1L, USER_ID);
     }
     @Test
     @DisplayName("It should throw an exception when the task does not exist for the user.")
@@ -166,7 +173,7 @@ class TaskServiceTest {
         mockAuthenticatedUser();
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(99L, USER_ID)).thenReturn(Optional.empty());
+        when(taskRepository.findByIdAndProjectMemberUserId(99L, USER_ID)).thenReturn(Optional.empty());
 
         assertThrows(TaskNotFoundException.class,() -> taskService.findById(99L, email));
     }
@@ -178,7 +185,7 @@ class TaskServiceTest {
         Task task = new Task("Study java", null);
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(1L, USER_ID)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID)).thenReturn(Optional.of(task));
 
         Task completedTask = taskService.complete(1L, email);
 
@@ -192,7 +199,7 @@ class TaskServiceTest {
         Task task = new Task("Study java", null);
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(1L, USER_ID)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID)).thenReturn(Optional.of(task));
 
         taskService.delete(1L, email);
 
@@ -204,11 +211,11 @@ class TaskServiceTest {
         mockAuthenticatedUser();
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(99L, USER_ID)).thenReturn(Optional.empty());
+        when(taskRepository.findByIdAndProjectMemberUserId(99L, USER_ID)).thenReturn(Optional.empty());
 
         assertThrows(TaskNotFoundException.class,() -> taskService.findById(99L, email));
 
-        verify(taskRepository).findByIdAndProjectUserId(99L, USER_ID);
+        verify(taskRepository).findByIdAndProjectMemberUserId(99L, USER_ID);
         verify(taskRepository, never()).delete(any(Task.class));
     }
     @Test
@@ -217,7 +224,7 @@ class TaskServiceTest {
         mockAuthenticatedUser();
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(99L, USER_ID)).thenReturn(Optional.empty());
+        when(taskRepository.findByIdAndProjectMemberUserId(99L, USER_ID)).thenReturn(Optional.empty());
 
         assertThrows(TaskNotFoundException.class,() ->
                 taskService.update(
@@ -230,7 +237,7 @@ class TaskServiceTest {
                         null,
                         email));
 
-        verify(taskRepository).findByIdAndProjectUserId(99L, USER_ID);
+        verify(taskRepository).findByIdAndProjectMemberUserId(99L, USER_ID);
     }
     @Test
     @DisplayName("Should not allow completing another user's task")
@@ -238,11 +245,11 @@ class TaskServiceTest {
         mockAuthenticatedUser();
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(99L, USER_ID)).thenReturn(Optional.empty());
+        when(taskRepository.findByIdAndProjectMemberUserId(99L, USER_ID)).thenReturn(Optional.empty());
 
         assertThrows(TaskNotFoundException.class,() -> taskService.complete(99L, email));
 
-        verify(taskRepository).findByIdAndProjectUserId(99L, USER_ID);
+        verify(taskRepository).findByIdAndProjectMemberUserId(99L, USER_ID);
     }
     @Test
     @DisplayName("Should not allow reopening another user's task")
@@ -250,11 +257,11 @@ class TaskServiceTest {
         mockAuthenticatedUser();
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(99L, USER_ID)).thenReturn(Optional.empty());
+        when(taskRepository.findByIdAndProjectMemberUserId(99L, USER_ID)).thenReturn(Optional.empty());
 
         assertThrows(TaskNotFoundException.class,() -> taskService.reopen(99L, email));
 
-        verify(taskRepository).findByIdAndProjectUserId(99L, USER_ID);
+        verify(taskRepository).findByIdAndProjectMemberUserId(99L, USER_ID);
     }
     @Test
     @DisplayName("Should not allow deleting another user's task")
@@ -262,18 +269,18 @@ class TaskServiceTest {
         mockAuthenticatedUser();
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(99L, USER_ID)).thenReturn(Optional.empty());
+        when(taskRepository.findByIdAndProjectMemberUserId(99L, USER_ID)).thenReturn(Optional.empty());
 
         assertThrows(TaskNotFoundException.class,() -> taskService.delete(99L, email));
 
-        verify(taskRepository).findByIdAndProjectUserId(99L, USER_ID);
+        verify(taskRepository).findByIdAndProjectMemberUserId(99L, USER_ID);
         verify(taskRepository, never()).delete(any(Task.class));
     }
     @Test
     @DisplayName("Should create a task with default planning values")
     void test_12(){
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         when(taskRepository.save(any(Task.class))).thenAnswer(
                 invocation -> invocation.getArgument(0));
@@ -297,7 +304,7 @@ class TaskServiceTest {
     @DisplayName("Should create a completed task with completedAt")
     void test_13(){
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         when(taskRepository.save(any(Task.class))).thenAnswer(
                 invocation -> invocation.getArgument(0));
@@ -322,7 +329,7 @@ class TaskServiceTest {
     void test_14(){
         mockAuthenticatedUser();
 
-        when(projectRepository.findByIdAndUserId(PROJECT_ID, USER_ID)).thenReturn(Optional.empty());
+        when(projectMemberRepository.findByProjectIdAndUserId(PROJECT_ID, USER_ID)).thenReturn(Optional.empty());
 
         assertThrows(ResponseStatusException.class,() -> taskService.findAll(
                 PROJECT_ID,
@@ -334,7 +341,16 @@ class TaskServiceTest {
                 null,
                 pageable));
 
-        verify(taskRepository, never()).findByIdAndProjectUserId(PROJECT_ID, USER_ID);
+        verify(taskRepository, never()).findAllWithFiltersByProjectMember(
+                anyLong(),
+                anyLong(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(Pageable.class)
+        );
     }
     @Test
     @DisplayName("Should throws unauthorized when the authenticated user does not exist")
@@ -358,7 +374,7 @@ class TaskServiceTest {
         assertNotNull(existingTask.getCompletedAt());
 
         mockAuthenticatedUser();
-        when(taskRepository.findByIdAndProjectUserId(1L, USER_ID)).thenReturn(Optional.of(existingTask));
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID)).thenReturn(Optional.of(existingTask));
 
         Task taskReopen = taskService.reopen(1L, email);
 
@@ -373,7 +389,7 @@ class TaskServiceTest {
         existingTask.completed();
 
         mockAuthenticatedUser();
-        when(taskRepository.findByIdAndProjectUserId(1L, USER_ID)).thenReturn(Optional.of(existingTask));
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID)).thenReturn(Optional.of(existingTask));
 
         Task canceledTask = taskService.cancel(1L, email);
 
@@ -387,7 +403,7 @@ class TaskServiceTest {
         existingTask.assignTo(project);
 
         mockAuthenticatedUser();
-        when(taskRepository.findByIdAndProjectUserId(1L, USER_ID)).thenReturn(Optional.of(existingTask));
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID)).thenReturn(Optional.of(existingTask));
 
         Task updatedTask = taskService.update(
                 1L,
@@ -410,11 +426,11 @@ class TaskServiceTest {
     @DisplayName("Should filter tasks by status")
     void test_19(){
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         Task task = new Task("Task in progress", null);
 
-        when(taskRepository.findAllWithFilters(
+        when(taskRepository.findAllWithFiltersByProjectMember(
                 PROJECT_ID,
                 USER_ID,
                 TaskStatus.IN_PROGRESS,
@@ -437,7 +453,7 @@ class TaskServiceTest {
         assertEquals(1, tasks.getTotalElements());
         assertEquals("Task in progress", tasks.getContent().getFirst().getTitle());
 
-        verify(taskRepository).findAllWithFilters(
+        verify(taskRepository).findAllWithFiltersByProjectMember(
                 PROJECT_ID,
                 USER_ID,
                 TaskStatus.IN_PROGRESS,
@@ -452,11 +468,11 @@ class TaskServiceTest {
     @DisplayName("Should filter tasks by priority")
     void test_20(){
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         Task task = new Task("High Task", null);
 
-        when(taskRepository.findAllWithFilters(
+        when(taskRepository.findAllWithFiltersByProjectMember(
                 PROJECT_ID,
                 USER_ID,
                 null,
@@ -479,7 +495,7 @@ class TaskServiceTest {
         assertEquals(1, tasks.getTotalElements());
         assertEquals("High Task", tasks.getContent().getFirst().getTitle());
 
-        verify(taskRepository).findAllWithFilters(
+        verify(taskRepository).findAllWithFiltersByProjectMember(
                 PROJECT_ID,
                 USER_ID,
                 null,
@@ -494,14 +510,14 @@ class TaskServiceTest {
     @DisplayName("Should filter tasks by due date range")
     void test_21(){
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         Task task = new Task("October Task", null);
 
         LocalDate from = LocalDate.of(2026, 10, 1);
         LocalDate to = LocalDate.of(2026, 10, 31);
 
-        when(taskRepository.findAllWithFilters(
+        when(taskRepository.findAllWithFiltersByProjectMember(
                 PROJECT_ID,
                 USER_ID,
                 null,
@@ -523,7 +539,7 @@ class TaskServiceTest {
 
         assertEquals(1, tasks.getTotalElements());
 
-        verify(taskRepository).findAllWithFilters(
+        verify(taskRepository).findAllWithFiltersByProjectMember(
                 PROJECT_ID,
                 USER_ID,
                 null,
@@ -538,14 +554,14 @@ class TaskServiceTest {
     @DisplayName("Should combine status, priority and due date filters")
     void test_22(){
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         Task task = new Task("Urgent Task", null);
 
         LocalDate from = LocalDate.of(2026, 10, 1);
         LocalDate to = LocalDate.of(2026, 10, 31);
 
-        when(taskRepository.findAllWithFilters(
+        when(taskRepository.findAllWithFiltersByProjectMember(
                 PROJECT_ID,
                 USER_ID,
                 TaskStatus.IN_PROGRESS,
@@ -567,7 +583,7 @@ class TaskServiceTest {
 
         assertEquals(1, tasks.getTotalElements());
 
-        verify(taskRepository).findAllWithFilters(
+        verify(taskRepository).findAllWithFiltersByProjectMember(
                 PROJECT_ID,
                 USER_ID,
                 TaskStatus.IN_PROGRESS,
@@ -582,7 +598,7 @@ class TaskServiceTest {
     @DisplayName("Should reject an invalid due date range")
     void test_23(){
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         LocalDate from = LocalDate.of(2026, 10, 31);
         LocalDate to = LocalDate.of(2026, 10, 1);
@@ -600,7 +616,8 @@ class TaskServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
 
-        verify(taskRepository, never()).findAllWithFilters(any(), any(), any(), any(), any(), any(), any(), any());
+        verify(taskRepository, never())
+                .findAllWithFiltersByProjectMember(any(), any(), any(), any(), any(), any(), any(), any());
     }
     @Test
     @DisplayName("Should return overdue tasks")
@@ -613,7 +630,7 @@ class TaskServiceTest {
         Page<Task> expected = new PageImpl<>(
                 List.of(task), pageable, 1
         );
-        when(taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+        when(taskRepository.findOverdueTasksByProjectMember(
                 USER_ID,
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -625,7 +642,7 @@ class TaskServiceTest {
         assertEquals(1, tasks.getTotalElements());
         assertEquals("Overdue task", tasks.getContent().getFirst().getTitle());
 
-        verify(taskRepository).findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+        verify(taskRepository).findOverdueTasksByProjectMember(
                 USER_ID,
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -639,7 +656,7 @@ class TaskServiceTest {
 
         LocalDate today = LocalDate.now();
 
-        when(taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+        when(taskRepository.findOverdueTasksByProjectMember(
                 USER_ID,
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -650,7 +667,7 @@ class TaskServiceTest {
 
         assertEquals(0, tasks.getTotalElements());
 
-        verify(taskRepository).findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+        verify(taskRepository).findOverdueTasksByProjectMember(
                 USER_ID,
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -668,7 +685,7 @@ class TaskServiceTest {
         Page<Task> expected = new PageImpl<>(
                 List.of(task), pageable, 1
         );
-        when(taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        when(taskRepository.findTasksDueTodayByProjectMember(
                 USER_ID,
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -680,7 +697,7 @@ class TaskServiceTest {
         assertEquals(1, tasks.getTotalElements());
         assertEquals("Task due today", tasks.getContent().getFirst().getTitle());
 
-        verify(taskRepository).findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        verify(taskRepository).findTasksDueTodayByProjectMember(
                 USER_ID,
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -694,7 +711,7 @@ class TaskServiceTest {
 
         LocalDate today = LocalDate.now();
 
-        when(taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        when(taskRepository.findTasksDueTodayByProjectMember(
                 USER_ID,
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -705,7 +722,7 @@ class TaskServiceTest {
 
         assertEquals(0, tasks.getTotalElements());
 
-        verify(taskRepository).findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        verify(taskRepository).findTasksDueTodayByProjectMember(
                 USER_ID,
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -727,7 +744,7 @@ class TaskServiceTest {
         Page<Task> expected = new PageImpl<>(
                 List.of(task), pageable, 1
         );
-        when(taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        when(taskRepository.findUpcomingTasksByProjectMember(
                 USER_ID,
                 today,
                 endDate,
@@ -740,7 +757,7 @@ class TaskServiceTest {
         assertEquals(1, tasks.getTotalElements());
         assertEquals("Upcoming task", tasks.getContent().getFirst().getTitle());
 
-        verify(taskRepository).findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        verify(taskRepository).findUpcomingTasksByProjectMember(
                 USER_ID,
                 today,
                 endDate,
@@ -804,7 +821,7 @@ class TaskServiceTest {
     @DisplayName("It must create a task assigned to a project member")
     void test_33() {
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         User assignee = new User(
                 "Member",
@@ -838,7 +855,7 @@ class TaskServiceTest {
     @DisplayName("It must create a task assigned to a project member")
     void test_34() {
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         User assignee = new User(
                 "Member",
@@ -872,7 +889,7 @@ class TaskServiceTest {
     @DisplayName("It must not create a task assigned to a non-member")
     void test_35() {
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         User assignee = new User(
                 "External User",
@@ -880,7 +897,6 @@ class TaskServiceTest {
                 "hashedPassword"
         );
 
-        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(userRepository.findById(2L)).thenReturn(Optional.of(assignee));
         when(projectMemberRepository.existsByProjectIdAndUserId(PROJECT_ID, 2L))
                 .thenReturn(false);
@@ -918,7 +934,7 @@ class TaskServiceTest {
         );
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(15L, USER_ID))
+        when(taskRepository.findByIdAndProjectMemberUserId(15L, USER_ID))
                 .thenReturn(Optional.of(task));
         when(userRepository.findById(2L)).thenReturn(Optional.of(assignee));
         when(projectMemberRepository.existsByProjectIdAndUserId(PROJECT_ID, 2L))
@@ -958,7 +974,7 @@ class TaskServiceTest {
         task.assignTo(assignee);
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(15L, USER_ID))
+        when(taskRepository.findByIdAndProjectMemberUserId(15L, USER_ID))
                 .thenReturn(Optional.of(task));
 
         Task updatedTask = taskService.update(
@@ -993,7 +1009,7 @@ class TaskServiceTest {
         );
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(taskRepository.findByIdAndProjectUserId(15L, USER_ID))
+        when(taskRepository.findByIdAndProjectMemberUserId(15L, USER_ID))
                 .thenReturn(Optional.of(task));
         when(userRepository.findById(2L)).thenReturn(Optional.of(assignee));
         when(projectMemberRepository.existsByProjectIdAndUserId(PROJECT_ID, 2L))
@@ -1022,7 +1038,7 @@ class TaskServiceTest {
     @DisplayName("It must not create a task with a non-existent assignee")
     void test_39() {
         mockAuthenticatedUser();
-        mockOwnerProject();
+        mockProjectMembership();
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(userRepository.findById(2L)).thenReturn(Optional.empty());

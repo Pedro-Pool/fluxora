@@ -31,6 +31,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
 
     private User owner;
     private User anotherUser;
+    private User member;
     private Project project;
     private Project anotherProject;
     private Pageable pageable;
@@ -47,11 +48,17 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
                 "another@example.com",
                 "$2a$10$abcdefghijklmnopqrstuu123456789012345678901234567890"
         );
+        member = new User(
+                "Project member",
+                "member@example.com",
+                "$2a$10$abcdefghijklmnopqrstuu123456789012345678901234567890"
+        );
 
         pageable = PageRequest.of(0, 10);
 
         entityManager.persist(owner);
         entityManager.persist(anotherUser);
+        entityManager.persist(member);
 
         project = new Project("Owner Project", "Test project");
         project.assignTo(owner);
@@ -59,8 +66,23 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         anotherProject = new Project("Another Project", "Test another project");
         anotherProject.assignTo(anotherUser);
 
+        ProjectMember ownerMembership = new ProjectMember(
+                project,
+                owner,
+                ProjectRole.OWNER
+        );
+
+        ProjectMember projectMembership = new ProjectMember(
+                project,
+                member,
+                ProjectRole.MEMBER
+        );
+
         entityManager.persist(project);
         entityManager.persist(anotherProject);
+
+        entityManager.persist(ownerMembership);
+        entityManager.persist(projectMembership);
 
         entityManager.flush();
     }
@@ -107,7 +129,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
                 LocalDate.of(2026,10,20),
                 project
         );
-        Page<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFiltersByProjectMember(
                 project.getId(), owner.getId(),
                 TaskStatus.TODO, null, null, null,null, pageable
         );
@@ -132,7 +154,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
                 project
         );
 
-        Page<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFiltersByProjectMember(
                 project.getId(), owner.getId(),
                 null, TaskPriority.HIGH, null, null,null, pageable
         );
@@ -180,7 +202,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
                 to.plusDays(1),
                 project
         );
-        Page<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFiltersByProjectMember(
                 project.getId(), owner.getId(),
                 null, null, from, to,null, pageable
         );
@@ -212,7 +234,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
                 project
         );
 
-        Page<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFiltersByProjectMember(
                 project.getId(), owner.getId(),
                 null, null, from, to,null, pageable
         );
@@ -237,7 +259,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
                 anotherProject
         );
 
-        Page<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFiltersByProjectMember(
                 project.getId(), owner.getId(),
                 null, null,
                 LocalDate.of(2026,10,10),
@@ -275,7 +297,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         Pageable sortedPageable = PageRequest.of(
                 0, 10, Sort.by(Sort.Direction.ASC, "title")
         );
-        Page<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFiltersByProjectMember(
                 project.getId(), owner.getId(),
                 null, null, null, null,null, sortedPageable
         );
@@ -309,7 +331,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         Pageable sortedPageable = PageRequest.of(
                 0, 10, Sort.by(Sort.Direction.DESC, "title")
         );
-        Page<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFiltersByProjectMember(
                 project.getId(), owner.getId(),
                 null, null, null, null,null, sortedPageable
         );
@@ -343,7 +365,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         Pageable sortedPageable = PageRequest.of(
                 0, 1, Sort.by(Sort.Direction.ASC, "title")
         );
-        Page<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFiltersByProjectMember(
                 project.getId(), owner.getId(),
                 null, null, null, null,null, sortedPageable
         );
@@ -379,7 +401,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        Page<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFiltersByProjectMember(
                 project.getId(), owner.getId(),
                 null, null, null, null,javaCategory.getId(), pageable
         );
@@ -402,7 +424,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        Page<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFiltersByProjectMember(
                 project.getId(), owner.getId(),
                 null, null, null, null, anotherUserCategory.getId(), pageable
         );
@@ -446,7 +468,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
 
         Pageable oneItemPerPage = PageRequest.of(0, 1, Sort.Direction.ASC, "title");
 
-        Page<Task> result = taskRepository.findAllWithFilters(
+        Page<Task> result = taskRepository.findAllWithFiltersByProjectMember(
                 project.getId(), owner.getId(),
                 null, null, null, null, javaCategory.getId(), oneItemPerPage
         );
@@ -477,7 +499,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+        Page<Task> result = taskRepository.findOverdueTasksByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -501,7 +523,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+        Page<Task> result = taskRepository.findOverdueTasksByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -523,7 +545,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+        Page<Task> result = taskRepository.findOverdueTasksByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -545,7 +567,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+        Page<Task> result = taskRepository.findOverdueTasksByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -567,7 +589,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+        Page<Task> result = taskRepository.findOverdueTasksByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -589,7 +611,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+        Page<Task> result = taskRepository.findOverdueTasksByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -618,7 +640,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        Page<Task> result = taskRepository.findTasksDueTodayByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -642,7 +664,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        Page<Task> result = taskRepository.findTasksDueTodayByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -664,7 +686,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        Page<Task> result = taskRepository.findTasksDueTodayByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -686,7 +708,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        Page<Task> result = taskRepository.findTasksDueTodayByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -708,7 +730,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        Page<Task> result = taskRepository.findTasksDueTodayByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -730,7 +752,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        Page<Task> result = taskRepository.findTasksDueTodayByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -752,7 +774,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        Page<Task> result = taskRepository.findTasksDueTodayByProjectMember(
                 owner.getId(),
                 today,
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -774,7 +796,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        Page<Task> result = taskRepository.findUpcomingTasksByProjectMember(
                 owner.getId(),
                 today,
                 today.plusDays(7),
@@ -799,7 +821,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        Page<Task> result = taskRepository.findUpcomingTasksByProjectMember(
                 owner.getId(),
                 today,
                 today.plusDays(7),
@@ -822,7 +844,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        Page<Task> result = taskRepository.findUpcomingTasksByProjectMember(
                 owner.getId(),
                 today,
                 today.plusDays(7),
@@ -845,7 +867,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        Page<Task> result = taskRepository.findUpcomingTasksByProjectMember(
                 owner.getId(),
                 today,
                 today.plusDays(7),
@@ -868,7 +890,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        Page<Task> result = taskRepository.findUpcomingTasksByProjectMember(
                 owner.getId(),
                 today,
                 today.plusDays(7),
@@ -891,7 +913,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        Page<Task> result = taskRepository.findUpcomingTasksByProjectMember(
                 owner.getId(),
                 today,
                 today.plusDays(7),
@@ -914,7 +936,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        Page<Task> result = taskRepository.findUpcomingTasksByProjectMember(
                 owner.getId(),
                 today,
                 today.plusDays(7),
@@ -937,7 +959,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        Page<Task> result = taskRepository.findUpcomingTasksByProjectMember(
                 owner.getId(),
                 today,
                 today.plusDays(7),
@@ -960,7 +982,7 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         );
         Pageable pageable = PageRequest.of(0, 1, Sort.Direction.ASC, "dueDate");
 
-        Page<Task> result = taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        Page<Task> result = taskRepository.findUpcomingTasksByProjectMember(
                 owner.getId(),
                 today,
                 today.plusDays(7),
@@ -1029,5 +1051,152 @@ class TaskRepositoryIntegrationTest extends AbstractIntegrationTest {
         assertThat(statistics.completedTasks()).isZero();
         assertThat(statistics.canceledTasks()).isZero();
         assertThat(statistics.overdueTasks()).isZero();
+    }
+    @Test
+    @DisplayName("Should find a task when requester is a project member")
+    void test_36() {
+        Task task = createTask(
+                "Member accessible task",
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                LocalDate.now().plusDays(2),
+                project
+        );
+
+        var result = taskRepository.findByIdAndProjectMemberUserId(
+                task.getId(),
+                member.getId()
+        );
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(task.getId());
+    }
+
+    @Test
+    @DisplayName("Should not find a task when requester is not a project member")
+    void test_37() {
+        Task task = createTask(
+                "Private project task",
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                LocalDate.now().plusDays(2),
+                project
+        );
+
+        var result = taskRepository.findByIdAndProjectMemberUserId(
+                task.getId(),
+                anotherUser.getId()
+        );
+
+        assertThat(result).isEmpty();
+    }
+    @Test
+    @DisplayName("Should return tasks when requester is a project member")
+    void test_38() {
+        Task task1 = createTask(
+                "Member task 1",
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                LocalDate.now().plusDays(1),
+                project
+        );
+
+        Task task2 = createTask(
+                "Member task 2",
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.HIGH,
+                LocalDate.now().plusDays(2),
+                project
+        );
+
+        Page<Task> result = taskRepository.findAllByProjectMemberUserId(
+                member.getId(),
+                pageable
+        );
+
+        assertThat(result.getContent())
+                .extracting(Task::getId)
+                .containsExactlyInAnyOrder(task1.getId(), task2.getId());
+    }
+    @Test
+    @DisplayName("Should return empty page when requester is not a project member")
+    void test_39() {
+        createTask(
+                "Private project task",
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                LocalDate.now().plusDays(1),
+                project
+        );
+
+        Page<Task> result = taskRepository.findAllByProjectMemberUserId(
+                anotherUser.getId(),
+                pageable
+        );
+
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isZero();
+    }
+    @Test
+    @DisplayName("Should return tasks from all projects where requester is a member")
+    void test_40() {
+        ProjectMember secondMembership = new ProjectMember(
+                anotherProject,
+                member,
+                ProjectRole.MEMBER
+        );
+
+        entityManager.persist(secondMembership);
+
+        Task task1 = createTask(
+                "First project task",
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                LocalDate.now().plusDays(1),
+                project
+        );
+
+        Task task2 = createTask(
+                "Second project task",
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.HIGH,
+                LocalDate.now().plusDays(2),
+                anotherProject
+        );
+
+        Page<Task> result = taskRepository.findAllByProjectMemberUserId(
+                member.getId(),
+                pageable
+        );
+
+        assertThat(result.getContent())
+                .extracting(Task::getId)
+                .containsExactlyInAnyOrder(task1.getId(), task2.getId());
+    }
+    @Test
+    @DisplayName("Should paginate tasks accessible to project member")
+    void test_41() {
+        for (int i = 1; i <= 5; i++) {
+            createTask(
+                    "Paginated task " + i,
+                    TaskStatus.TODO,
+                    TaskPriority.MEDIUM,
+                    LocalDate.now().plusDays(i),
+                    project
+            );
+        }
+
+        Pageable firstPage = PageRequest.of(0, 2);
+
+        Page<Task> result = taskRepository.findAllByProjectMemberUserId(
+                member.getId(),
+                firstPage
+        );
+
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getTotalElements()).isEqualTo(5);
+        assertThat(result.getTotalPages()).isEqualTo(3);
+        assertThat(result.getNumber()).isZero();
+        assertThat(result.hasNext()).isTrue();
     }
 }

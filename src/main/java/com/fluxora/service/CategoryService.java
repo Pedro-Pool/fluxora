@@ -57,7 +57,7 @@ public class CategoryService {
                 && categoryRepository.existsByUserIdAndName(user.getId(), normalizedName)){
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Category already exists");
         }
-        category.rename(name);
+        category.rename(normalizedName);
         return category;
     }
     @Transactional
@@ -65,7 +65,7 @@ public class CategoryService {
         User user = findUserByEmail(email);
         Category category = findCategoryByIdAndUser(id, user.getId());
 
-        List<Task> tasks = taskRepository.findAllByProjectUserId( user.getId());
+        List<Task> tasks = taskRepository.findAllTasksByProjectMemberUserId( user.getId());
 
         for (Task task : tasks){
             task.removeCategory(category);
@@ -77,7 +77,7 @@ public class CategoryService {
     public void addToTask(Long taskId, Long categoryId, String email){
         User user = findUserByEmail(email);
 
-        Task task = taskRepository.findByIdAndProjectUserId(taskId, user.getId())
+        Task task = taskRepository.findByIdAndProjectMemberUserId(taskId, user.getId())
                 .orElseThrow(() -> new TaskNotFoundException(taskId));
 
         Category category = findCategoryByIdAndUser(categoryId, user.getId());
@@ -88,7 +88,7 @@ public class CategoryService {
     public void removeFromTask(Long taskId, Long categoryId, String email){
         User user = findUserByEmail(email);
 
-        Task task = taskRepository.findByIdAndProjectUserId(taskId, user.getId())
+        Task task = taskRepository.findByIdAndProjectMemberUserId(taskId, user.getId())
                 .orElseThrow(() -> new TaskNotFoundException(taskId));
 
         Category category = findCategoryByIdAndUser(categoryId, user.getId());

@@ -47,14 +47,18 @@ public class TaskService {
             Pageable pageable){
         User user = findUserByEmail(email);
 
-        findProjectByIdAndUser(projectId, user.getId());
+        projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Project not found"
+                ));
 
         if (dueDateFrom != null && dueDateTo != null && dueDateFrom.isAfter(dueDateTo)){
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "The start date must be before or equals to the end date");
         }
 
-        return taskRepository.findAllWithFilters(
+        return taskRepository.findAllWithFiltersByProjectMember(
                 projectId,
                 user.getId(),
                 status,
@@ -67,12 +71,12 @@ public class TaskService {
     public Task findById(Long id, String email){
         User user = findUserByEmail(email);
 
-        return findTaskByIdAndUser(id, user.getId());
+        return findTaskByIdAndMember(id, user.getId());
     }
     public Page<Task> findOverdueTasks(String email, Pageable pageable){
         User user = findUserByEmail(email);
 
-        return taskRepository.findAllByProjectUserIdAndDueDateBeforeAndStatusNotIn(
+        return taskRepository.findOverdueTasksByProjectMember(
                 user.getId(),
                 LocalDate.now(),
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -82,7 +86,7 @@ public class TaskService {
     public Page<Task> findTasksDueDate(String email, Pageable pageable){
         User user = findUserByEmail(email);
 
-        return taskRepository.findAllByProjectUserIdAndDueDateAndStatusNotIn(
+        return taskRepository.findTasksDueTodayByProjectMember(
                 user.getId(),
                 LocalDate.now(),
                 List.of(TaskStatus.DONE, TaskStatus.CANCELED),
@@ -99,7 +103,7 @@ public class TaskService {
         LocalDate today = LocalDate.now();
         LocalDate endDate = today.plusDays(days);
 
-        return taskRepository.findAllByProjectUserIdAndDueDateBetweenAndStatusNotIn(
+        return taskRepository.findUpcomingTasksByProjectMember(
                 user.getId(),
                 today,
                 endDate,
@@ -124,7 +128,14 @@ public class TaskService {
                        String email){
 
         User user = findUserByEmail(email);
-        Project project = findProjectByIdAndUser(projectId, user.getId());
+        ProjectMember membership = projectMemberRepository
+                .findByProjectIdAndUserId(projectId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Project not found"
+                ));
+
+        Project project = membership.getProject();
+
         User assignee = findAssigneeForProject(assigneeId, projectId);
 
         Task task = new Task(title, description);
@@ -152,7 +163,7 @@ public class TaskService {
                        String email){
 
         User user = findUserByEmail(email);
-        Task task = findTaskByIdAndUser(id, user.getId());
+        Task task = findTaskByIdAndMember(id, user.getId());
         User assignee = findAssigneeForProject(assigneeId, task.getProject().getId());
 
         task.assignTo(assignee);
@@ -174,21 +185,21 @@ public class TaskService {
     @Transactional
     public Task complete(Long id, String email){
         User user = findUserByEmail(email);
-        Task task = findTaskByIdAndUser(id, user.getId());
+        Task task = findTaskByIdAndMember(id, user.getId());
         task.completed();
         return task;
     }
     @Transactional
     public Task reopen(Long id, String email){
         User user = findUserByEmail(email);
-        Task task = findTaskByIdAndUser(id, user.getId());
+        Task task = findTaskByIdAndMember(id, user.getId());
         task.reopen();
         return task;
     }
     @Transactional
     public Task cancel(Long id, String email){
         User user = findUserByEmail(email);
-        Task task = findTaskByIdAndUser(id, user.getId());
+        Task task = findTaskByIdAndMember(id, user.getId());
         task.cancel();
         return task;
     }
@@ -196,7 +207,7 @@ public class TaskService {
     @Transactional
     public void delete(Long id, String email){
         User user = findUserByEmail(email);
-        Task task = findTaskByIdAndUser(id, user.getId());
+        Task task = findTaskByIdAndMember(id, user.getId());
         taskRepository.delete(task);
     }
 
@@ -205,13 +216,8 @@ public class TaskService {
                 HttpStatus.UNAUTHORIZED, "Authenticated user not found"
         ));
     }
-    private Project findProjectByIdAndUser(Long projectId, Long userId){
-        return projectRepository.findByIdAndUserId(projectId, userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Project not found"));
-    }
-    private Task findTaskByIdAndUser(Long id, Long userId){
-        return taskRepository.findByIdAndProjectUserId(id, userId)
+    private Task findTaskByIdAndMember(Long id, Long userId){
+        return taskRepository.findByIdAndProjectMemberUserId(id, userId)
                 .orElseThrow(() -> new TaskNotFoundException(id));
     }
     private User findAssigneeForProject(Long assigneeId, Long projectId) {
