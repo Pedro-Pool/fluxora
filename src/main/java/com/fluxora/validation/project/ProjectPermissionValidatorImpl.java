@@ -1,7 +1,7 @@
 package com.fluxora.validation.project;
 
 import com.fluxora.entity.ProjectMember;
-import com.fluxora.entity.ProjectRole;
+import com.fluxora.enums.ProjectRole;
 import com.fluxora.entity.User;
 import com.fluxora.repository.ProjectMemberRepository;
 import com.fluxora.repository.UserRepository;

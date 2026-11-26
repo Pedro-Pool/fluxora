@@ -1,4 +1,4 @@
-package com.fluxora.entity;
+package com.fluxora.enums;
 
 public enum ProjectRole {
     OWNER,

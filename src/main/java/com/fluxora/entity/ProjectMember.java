@@ -1,5 +1,6 @@
 package com.fluxora.entity;
 
+import com.fluxora.enums.ProjectRole;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;

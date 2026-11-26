@@ -1,12 +1,17 @@
 package com.fluxora.controller;
 
 import com.fluxora.entity.*;
+import com.fluxora.enums.ProjectRole;
+import com.fluxora.enums.TaskHistoryAction;
+import com.fluxora.enums.TaskPriority;
+import com.fluxora.enums.TaskStatus;
 import com.fluxora.repository.*;
 import com.fluxora.service.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -15,6 +20,8 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -56,6 +63,9 @@ class TaskAuthorizationIntegrationTest {
 
     @Autowired
     private ProjectMemberRepository projectMemberRepository;
+
+    @Autowired
+    private TaskHistoryRepository taskHistoryRepository;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -602,5 +612,258 @@ class TaskAuthorizationIntegrationTest {
         Task unchangedTask = taskRepository.findById(taskA.getId()).orElseThrow();
 
         assertNull(unchangedTask.getAssignee());
+    }
+    @Test
+    @DisplayName("Should persist history for all changed task fields after updating a task")
+    void test_24() throws Exception {
+        LocalDate newDueDate = LocalDate.of(2026, 12, 31);
+
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "title": "Updated task title",
+                            "description": "Updated description",
+                            "status": "DONE",
+                            "priority": "HIGH",
+                            "dueDate": "%s",
+                            "assigneeId": %d
+                        }
+                        """.formatted(newDueDate, userC.getId())))
+                .andExpect(status().isOk());
+
+        List<TaskHistory> histories =
+                taskHistoryRepository.findAllByTaskId(taskA.getId(), Pageable.unpaged())
+                        .getContent();
+
+        assertEquals(7, histories.size());
+
+        assertTrue(histories.stream().anyMatch(history ->
+                history.getAction() == TaskHistoryAction.CREATED
+                        && history.getFieldName() == null
+        ));
+
+        assertTrue(histories.stream().anyMatch(history ->
+                "title".equals(history.getFieldName())
+                        && "Task private A".equals(history.getOldValue())
+                        && "Updated task title".equals(history.getNewValue())
+        ));
+
+        assertTrue(histories.stream().anyMatch(history ->
+                "description".equals(history.getFieldName())
+                        && "test".equals(history.getOldValue())
+                        && "Updated description".equals(history.getNewValue())
+        ));
+
+        assertTrue(histories.stream().anyMatch(history ->
+                "status".equals(history.getFieldName())
+                        && "TODO".equals(history.getOldValue())
+                        && "DONE".equals(history.getNewValue())
+                        && history.getAction() == TaskHistoryAction.COMPLETED
+        ));
+
+        assertTrue(histories.stream().anyMatch(history ->
+                "priority".equals(history.getFieldName())
+                        && "MEDIUM".equals(history.getOldValue())
+                        && "HIGH".equals(history.getNewValue())
+        ));
+
+        assertTrue(histories.stream().anyMatch(history ->
+                "dueDate".equals(history.getFieldName())
+                        && history.getOldValue() == null
+                        && newDueDate.toString().equals(history.getNewValue())
+        ));
+
+        assertTrue(histories.stream().anyMatch(history ->
+                "assignee".equals(history.getFieldName())
+                        && history.getOldValue() == null
+                        && userC.getId().toString().equals(history.getNewValue())
+                        && history.getAction() == TaskHistoryAction.ASSIGNED
+        ));
+    }
+    @Test
+    @DisplayName("Should not return history from another task")
+    void test_25() {
+        List<TaskHistory> histories =
+                taskHistoryRepository.findAllByTaskId(taskA.getId(), Pageable.unpaged())
+                        .getContent();
+
+        assertEquals(1, histories.size());
+        assertEquals(taskA.getId(), histories.get(0).getTask().getId());
+        assertEquals(TaskHistoryAction.CREATED, histories.get(0).getAction());
+    }
+    @Test
+    @DisplayName("Should not register history when no task field changes")
+    void test_26() throws Exception {
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "title": "Task private A",
+                            "description": "test",
+                            "status": "TODO",
+                            "priority": "MEDIUM"
+                        }
+                        """))
+                .andExpect(status().isOk());
+
+        List<TaskHistory> histories =
+                taskHistoryRepository.findAllByTaskId(taskA.getId(), Pageable.unpaged())
+                        .getContent();
+
+        assertEquals(1, histories.size());
+        assertEquals(TaskHistoryAction.CREATED, histories.get(0).getAction());
+    }
+    @Test
+    @DisplayName("Should register history when assigning and removing an assignee")
+    void test_27() throws Exception {
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "title": "Task private A",
+                            "description": "test",
+                            "status": "TODO",
+                            "priority": "MEDIUM",
+                            "assigneeId": %d
+                        }
+                        """.formatted(userC.getId())))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "title": "Task private A",
+                            "description": "test",
+                            "status": "TODO",
+                            "priority": "MEDIUM",
+                            "assigneeId": null
+                        }
+                        """))
+                .andExpect(status().isOk());
+
+        List<TaskHistory> histories =
+                taskHistoryRepository.findAllByTaskId(taskA.getId(), Pageable.unpaged())
+                        .getContent();
+
+        assertEquals(3, histories.size());
+
+        assertTrue(histories.stream().anyMatch(history ->
+                "assignee".equals(history.getFieldName())
+                        && history.getAction() == TaskHistoryAction.ASSIGNED
+                        && history.getOldValue() == null
+                        && userC.getId().toString().equals(history.getNewValue())
+        ));
+
+        assertTrue(histories.stream().anyMatch(history ->
+                "assignee".equals(history.getFieldName())
+                        && history.getAction() == TaskHistoryAction.ASSIGNED
+                        && userC.getId().toString().equals(history.getOldValue())
+                        && history.getNewValue() == null
+        ));
+    }
+    @Test
+    @DisplayName("Should register history when completing, reopening and canceling a task")
+    void test_28() throws Exception {
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "title": "Task private A",
+                            "description": "test",
+                            "status": "DONE",
+                            "priority": "MEDIUM"
+                        }
+                        """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "title": "Task private A",
+                            "description": "test",
+                            "status": "IN_PROGRESS",
+                            "priority": "MEDIUM"
+                        }
+                        """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/tasks/{id}", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "title": "Task private A",
+                            "description": "test",
+                            "status": "CANCELED",
+                            "priority": "MEDIUM"
+                        }
+                        """))
+                .andExpect(status().isOk());
+
+        List<TaskHistory> histories =
+                taskHistoryRepository.findAllByTaskId(taskA.getId(), Pageable.unpaged())
+                        .getContent();
+
+        assertEquals(4, histories.size());
+
+        assertTrue(histories.stream().anyMatch(history ->
+                history.getAction() == TaskHistoryAction.COMPLETED
+                        && "TODO".equals(history.getOldValue())
+                        && "DONE".equals(history.getNewValue())
+        ));
+
+        assertTrue(histories.stream().anyMatch(history ->
+                history.getAction() == TaskHistoryAction.REOPENED
+                        && "DONE".equals(history.getOldValue())
+                        && "IN_PROGRESS".equals(history.getNewValue())
+        ));
+
+        assertTrue(histories.stream().anyMatch(history ->
+                history.getAction() == TaskHistoryAction.CANCELED
+                        && "IN_PROGRESS".equals(history.getOldValue())
+                        && "CANCELED".equals(history.getNewValue())
+        ));
+    }
+    @Test
+    @DisplayName("Should not allow non-member to access task history")
+    void test_29() throws Exception {
+        mockMvc.perform(get("/api/tasks/{id}/history", taskA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenB))
+                .andExpect(status().isNotFound());
+
+        assertEquals(1, taskHistoryRepository
+                .findAllByTaskId(taskA.getId(), Pageable.unpaged())
+                .getTotalElements());
+    }
+    @Test
+    @DisplayName("Should not allow access to history of a nonexistent task")
+    void test_30() throws Exception {
+        mockMvc.perform(get("/api/tasks/{id}/history", Long.MAX_VALUE)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                .andExpect(status().isNotFound());
+    }
+    @Test
+    @DisplayName("Should delete task history when deleting a task")
+    void test_31() throws Exception {
+        Long taskId = taskA.getId();
+
+        assertEquals(1, taskHistoryRepository.findAllByTaskId(
+                taskId, Pageable.unpaged()).getTotalElements());
+
+        mockMvc.perform(delete("/api/tasks/{id}", taskId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                .andExpect(status().isNoContent());
+
+        assertEquals(0, taskHistoryRepository.findAllByTaskId(
+                taskId, Pageable.unpaged()).getTotalElements());
     }
 }

@@ -4,7 +4,7 @@ package com.fluxora.repository;
 import com.fluxora.config.AbstractIntegrationTest;
 import com.fluxora.entity.Project;
 import com.fluxora.entity.ProjectMember;
-import com.fluxora.entity.ProjectRole;
+import com.fluxora.enums.ProjectRole;
 import com.fluxora.entity.User;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;

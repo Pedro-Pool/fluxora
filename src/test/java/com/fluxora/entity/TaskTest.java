@@ -1,5 +1,7 @@
 package com.fluxora.entity;
 
+import com.fluxora.enums.TaskPriority;
+import com.fluxora.enums.TaskStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

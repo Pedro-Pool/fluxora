@@ -1,7 +1,7 @@
 package com.fluxora.dto;
 
-import com.fluxora.entity.TaskPriority;
-import com.fluxora.entity.TaskStatus;
+import com.fluxora.enums.TaskPriority;
+import com.fluxora.enums.TaskStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 

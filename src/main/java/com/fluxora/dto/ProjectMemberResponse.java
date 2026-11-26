@@ -1,7 +1,7 @@
 package com.fluxora.dto;
 
 import com.fluxora.entity.ProjectMember;
-import com.fluxora.entity.ProjectRole;
+import com.fluxora.enums.ProjectRole;
 
 import java.time.LocalDateTime;
 

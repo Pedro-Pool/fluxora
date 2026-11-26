@@ -2,8 +2,11 @@ package com.fluxora.service;
 
 import com.fluxora.dto.TaskStatisticsResponse;
 import com.fluxora.entity.*;
+import com.fluxora.enums.TaskHistoryAction;
+import com.fluxora.enums.TaskPriority;
+import com.fluxora.enums.TaskStatus;
 import com.fluxora.repository.ProjectMemberRepository;
-import com.fluxora.repository.ProjectRepository;
+import com.fluxora.repository.TaskHistoryRepository;
 import com.fluxora.repository.TaskRepository;
 import com.fluxora.exception.TaskNotFoundException;
 import com.fluxora.repository.UserRepository;
@@ -17,23 +20,24 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @Transactional(readOnly = true)
 public class TaskService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
-    private final ProjectRepository projectRepository;
+    private final TaskHistoryRepository taskHistoryRepository;
     private final ProjectMemberRepository projectMemberRepository;
 
     public TaskService(TaskRepository taskRepository,
                        UserRepository userRepository,
-                       ProjectRepository projectRepository,
+                       TaskHistoryRepository taskHistoryRepository,
                        ProjectMemberRepository projectMemberRepository){
 
         this.userRepository = userRepository;
         this.taskRepository = taskRepository;
-        this.projectRepository = projectRepository;
+        this.taskHistoryRepository = taskHistoryRepository;
         this.projectMemberRepository = projectMemberRepository;
     }
     public Page<Task> findAll(
@@ -150,7 +154,20 @@ public class TaskService {
             task.cancel();
         }
 
-        return taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+
+        TaskHistory history = new TaskHistory(
+                savedTask,
+                user,
+                TaskHistoryAction.CREATED,
+                null,
+                null,
+                null
+        );
+
+        taskHistoryRepository.save(history);
+
+        return savedTask;
     }
     @Transactional
     public Task update(Long id,
@@ -166,8 +183,41 @@ public class TaskService {
         Task task = findTaskByIdAndMember(id, user.getId());
         User assignee = findAssigneeForProject(assigneeId, task.getProject().getId());
 
+        String oldTitle = task.getTitle();
+        String oldDescription = task.getDescription();
+
+        TaskPriority oldPriority = task.getPriority();
+        LocalDate oldDueDate = task.getDueDate();
+
+        Long oldAssigneeId = task.getAssignee() != null ? task.getAssignee().getId() : null;
+
+        TaskStatus oldStatus = task.getStatus();
+
         task.assignTo(assignee);
         task.updateDetails(title, description);
+
+        if (!oldTitle.equals(task.getTitle())){
+            taskHistoryRepository.save(new TaskHistory(
+                    task,
+                    user,
+                    TaskHistoryAction.UPDATED,
+                    "title",
+                    oldTitle,
+                    task.getTitle()
+            ));
+        }
+
+        if (!Objects.equals(oldDescription, task.getDescription())){
+            taskHistoryRepository.save(new TaskHistory(
+                    task,
+                    user,
+                    TaskHistoryAction.UPDATED,
+                    "description",
+                    oldDescription,
+                    task.getDescription()
+            ));
+        }
+
         task.updatePlanning(status, priority, dueDate);
 
         if (status == TaskStatus.DONE){
@@ -180,6 +230,64 @@ public class TaskService {
                 task.updatePlanning(status, priority, dueDate);
             }
         }
+
+        TaskStatus newStatus = task.getStatus();
+
+        if (!Objects.equals(oldStatus, newStatus)){
+            TaskHistoryAction action;
+
+            if (newStatus == TaskStatus.DONE){
+                action = TaskHistoryAction.COMPLETED;
+            } else if (newStatus == TaskStatus.CANCELED){
+                action = TaskHistoryAction.CANCELED;
+            } else {
+                action = TaskHistoryAction.REOPENED;
+            }
+
+            taskHistoryRepository.save(new TaskHistory(
+                    task,
+                    user,
+                    action,
+                    "status",
+                    oldStatus != null ? oldStatus.name() : null,
+                    newStatus != null ? newStatus.name() : null
+            ));
+        }
+
+        if (!Objects.equals(oldPriority, task.getPriority())){
+            taskHistoryRepository.save(new TaskHistory(
+                    task,
+                    user,
+                    TaskHistoryAction.UPDATED,
+                    "priority",
+                    oldPriority != null ? oldPriority.name() : null,
+                    task.getPriority() != null ? task.getPriority().name() : null
+            ));
+        }
+        if (!Objects.equals(oldDueDate, task.getDueDate())){
+            taskHistoryRepository.save(new TaskHistory(
+                    task,
+                    user,
+                    TaskHistoryAction.UPDATED,
+                    "dueDate",
+                    oldDueDate != null ? oldDueDate.toString() : null,
+                    task.getDueDate() != null ? task.getDueDate().toString() : null
+            ));
+        }
+
+        Long newAssigneeId = task.getAssignee() != null ? task.getAssignee().getId() : null;
+
+        if (!Objects.equals(oldAssigneeId, newAssigneeId)){
+            taskHistoryRepository.save(new TaskHistory(
+                    task,
+                    user,
+                    TaskHistoryAction.ASSIGNED,
+                    "assignee",
+                    oldAssigneeId != null ? oldAssigneeId.toString() : null,
+                    newAssigneeId != null ? newAssigneeId.toString() : null
+            ));
+        }
+
         return task;
     }
     @Transactional
@@ -240,5 +348,4 @@ public class TaskService {
 
         return assignee;
     }
-
 }

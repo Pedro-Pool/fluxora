@@ -1,8 +1,8 @@
 package com.fluxora.dto;
 
 import com.fluxora.entity.Task;
-import com.fluxora.entity.TaskPriority;
-import com.fluxora.entity.TaskStatus;
+import com.fluxora.enums.TaskPriority;
+import com.fluxora.enums.TaskStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

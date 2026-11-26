@@ -1,7 +1,7 @@
 package com.fluxora.validation.project;
 
 import com.fluxora.entity.ProjectMember;
-import com.fluxora.entity.ProjectRole;
+import com.fluxora.enums.ProjectRole;
 
 public interface ProjectPermissionValidator {
 

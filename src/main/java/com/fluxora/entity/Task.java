@@ -1,5 +1,7 @@
 package com.fluxora.entity;
 
+import com.fluxora.enums.TaskPriority;
+import com.fluxora.enums.TaskStatus;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
