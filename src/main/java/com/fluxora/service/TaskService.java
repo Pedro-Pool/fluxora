@@ -11,7 +11,6 @@ import com.fluxora.repository.TaskRepository;
 import com.fluxora.exception.TaskNotFoundException;
 import com.fluxora.repository.UserRepository;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -162,6 +161,7 @@ public class TaskService {
         Task savedTask = taskRepository.save(task);
 
         TaskHistory history = new TaskHistory(
+                savedTask.getProject(),
                 savedTask,
                 user,
                 TaskHistoryAction.CREATED,
@@ -203,6 +203,7 @@ public class TaskService {
 
         if (!oldTitle.equals(task.getTitle())){
             taskHistoryRepository.save(new TaskHistory(
+                    task.getProject(),
                     task,
                     user,
                     TaskHistoryAction.UPDATED,
@@ -214,13 +215,15 @@ public class TaskService {
 
         if (!Objects.equals(oldDescription, task.getDescription())){
             taskHistoryRepository.save(new TaskHistory(
+                    task.getProject(),
                     task,
                     user,
                     TaskHistoryAction.UPDATED,
                     "description",
                     oldDescription,
                     task.getDescription()
-            ));
+                    )
+            );
         }
 
         task.updatePlanning(status, priority, dueDate);
@@ -250,6 +253,7 @@ public class TaskService {
             }
 
             taskHistoryRepository.save(new TaskHistory(
+                    task.getProject(),
                     task,
                     user,
                     action,
@@ -261,6 +265,7 @@ public class TaskService {
 
         if (!Objects.equals(oldPriority, task.getPriority())){
             taskHistoryRepository.save(new TaskHistory(
+                    task.getProject(),
                     task,
                     user,
                     TaskHistoryAction.UPDATED,
@@ -270,20 +275,24 @@ public class TaskService {
             ));
         }
         if (!Objects.equals(oldDueDate, task.getDueDate())){
-            taskHistoryRepository.save(new TaskHistory(
+            taskHistoryRepository.save(
+                    new TaskHistory(
+                    task.getProject(),
                     task,
                     user,
                     TaskHistoryAction.UPDATED,
                     "dueDate",
                     oldDueDate != null ? oldDueDate.toString() : null,
                     task.getDueDate() != null ? task.getDueDate().toString() : null
-            ));
+                    )
+            );
         }
 
         Long newAssigneeId = task.getAssignee() != null ? task.getAssignee().getId() : null;
 
         if (!Objects.equals(oldAssigneeId, newAssigneeId)){
             taskHistoryRepository.save(new TaskHistory(
+                    task.getProject(),
                     task,
                     user,
                     TaskHistoryAction.ASSIGNED,
@@ -329,6 +338,7 @@ public class TaskService {
         Task task = findTaskByIdAndMember(id, user.getId());
 
         TaskHistory history = new TaskHistory(
+                task.getProject(),
                 task,
                 user,
                 TaskHistoryAction.DELETED,
@@ -391,6 +401,7 @@ public class TaskService {
 
         if (!Objects.equals(oldStatus, currentStatus)){
             taskHistoryRepository.save(new TaskHistory(
+                    task.getProject(),
                     task,
                     user,
                     action,

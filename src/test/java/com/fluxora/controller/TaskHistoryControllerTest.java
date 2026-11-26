@@ -1,7 +1,7 @@
 package com.fluxora.controller;
 
 import com.fluxora.config.JwtAuthenticationFilter;
-import com.fluxora.dto.TaskHistoryResponse;
+import com.fluxora.entity.Project;
 import com.fluxora.entity.Task;
 import com.fluxora.entity.TaskHistory;
 import com.fluxora.entity.User;
@@ -18,7 +18,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.hamcrest.Matchers.nullValue;
@@ -54,7 +53,10 @@ class TaskHistoryControllerTest {
 
         Task task = new Task("Study Java", "Practice tests");
 
+        task.assignTo(new Project("Study java", null));
+
         TaskHistory history = new TaskHistory(
+                task.getProject(),
                 task,
                 user,
                 TaskHistoryAction.CREATED,
@@ -219,9 +221,14 @@ class TaskHistoryControllerTest {
     @DisplayName("Should return deletion history with null task id")
     void test_09() throws Exception {
 
+        Project project = new Project("Test Project", "Test Description");
+
         User user = new User("Test User", EMAIL, "hashedPassword");
 
+
+
         TaskHistory history = new TaskHistory(
+                project,
                 null,
                 user,
                 TaskHistoryAction.DELETED,

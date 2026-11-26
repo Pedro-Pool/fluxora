@@ -37,6 +37,9 @@ class TaskHistoryServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private ProjectMemberRepository projectMemberRepository;
+
     @InjectMocks
     private TaskHistoryService taskHistoryService;
 
@@ -77,6 +80,12 @@ class TaskHistoryServiceTest {
         when(taskRepository.findByIdAndProjectMemberUserId(TASK_ID, USER_ID))
                 .thenReturn(Optional.of(task));
     }
+    private void mockUserAsProjectMember(){
+        ProjectMember projectMember = mock(ProjectMember.class);
+
+        when(projectMemberRepository.findByProjectIdAndUserId(PROJECT_ID, USER_ID))
+                .thenReturn(Optional.of(projectMember));
+    }
 
     @Test
     @DisplayName("It must return task history for a project member")
@@ -85,6 +94,7 @@ class TaskHistoryServiceTest {
         mockTaskAccessibleByUser();
 
         TaskHistory history = new TaskHistory(
+                project,
                 task,
                 user,
                 TaskHistoryAction.CREATED,
@@ -227,5 +237,113 @@ class TaskHistoryServiceTest {
                 .findAllByTaskIdAndTaskProjectId(
                         TASK_ID, PROJECT_ID, requestedPageable
                 );
+    }
+    @Test
+    @DisplayName("It must return project history for a project member")
+    void test_07() {
+        mockAuthenticatedUser();
+        mockUserAsProjectMember();
+
+        TaskHistory history = new TaskHistory(
+                project,
+                task,
+                user,
+                TaskHistoryAction.CREATED,
+                null,
+                null,
+                null
+        );
+
+        Page<TaskHistory> historyPage =
+                new PageImpl<>(List.of(history), pageable, 1);
+
+        when(taskHistoryRepository.findAllByProjectId(
+                PROJECT_ID,
+                pageable
+        )).thenReturn(historyPage);
+
+        Page<TaskHistory> result = taskHistoryService.findAllByProject(
+                PROJECT_ID,
+                email,
+                pageable
+        );
+
+        assertEquals(1, result.getTotalElements());
+        assertSame(history, result.getContent().getFirst());
+
+        verify(projectMemberRepository)
+                .findByProjectIdAndUserId(PROJECT_ID, USER_ID);
+
+        verify(taskHistoryRepository)
+                .findAllByProjectId(PROJECT_ID, pageable);
+    }
+
+    @Test
+    @DisplayName("It must return an empty page when project has no history")
+    void test_08() {
+        mockAuthenticatedUser();
+        mockUserAsProjectMember();
+
+        Page<TaskHistory> emptyPage =
+                new PageImpl<>(List.of(), pageable, 0);
+
+        when(taskHistoryRepository.findAllByProjectId(
+                PROJECT_ID,
+                pageable
+        )).thenReturn(emptyPage);
+
+        Page<TaskHistory> result = taskHistoryService.findAllByProject(
+                PROJECT_ID,
+                email,
+                pageable
+        );
+
+        assertTrue(result.isEmpty());
+        assertEquals(0, result.getTotalElements());
+    }
+
+    @Test
+    @DisplayName("It must throw 404 when user is not a project member")
+    void test_09() {
+        mockAuthenticatedUser();
+
+        when(projectMemberRepository.findByProjectIdAndUserId(
+                PROJECT_ID,
+                USER_ID
+        )).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> taskHistoryService.findAllByProject(
+                        PROJECT_ID,
+                        email,
+                        pageable
+                )
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+
+        verifyNoInteractions(taskHistoryRepository);
+    }
+
+    @Test
+    @DisplayName("It must throw 401 when authenticated user does not exist")
+    void test_10() {
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> taskHistoryService.findAllByProject(
+                        PROJECT_ID,
+                        email,
+                        pageable
+                )
+        );
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+
+        verifyNoInteractions(projectMemberRepository);
+        verifyNoInteractions(taskHistoryRepository);
     }
 }

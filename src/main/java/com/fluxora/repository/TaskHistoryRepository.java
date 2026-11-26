@@ -12,6 +12,8 @@ public interface TaskHistoryRepository extends JpaRepository<TaskHistory, Long> 
 
     Page<TaskHistory> findAllByTaskIdAndTaskProjectId(Long taskId, Long projectId, Pageable pageable);
 
+    Page<TaskHistory> findAllByProjectId(Long projectId, Pageable pageable);
+
     @Transactional
     void deleteAllByUserId(Long userId);
 }

@@ -864,7 +864,7 @@ class   TaskAuthorizationIntegrationTest {
                 .andExpect(status().isNotFound());
     }
     @Test
-    @DisplayName("Should delete task history when deleting a task")
+    @DisplayName("Should preserve deletion history when deleting a task")
     void test_31() throws Exception {
         Long taskId = taskA.getId();
 
@@ -877,5 +877,36 @@ class   TaskAuthorizationIntegrationTest {
 
         assertEquals(0, taskHistoryRepository.findAllByTaskId(
                 taskId, Pageable.unpaged()).getTotalElements());
+
+        var history = taskHistoryRepository.findAllByProjectId(
+                projectA.getId(), Pageable.unpaged());
+
+        assertEquals(2, history.getTotalElements());
+
+        TaskHistory deletionHistory = history.getContent().stream()
+                .filter(h -> h.getAction() == TaskHistoryAction.DELETED)
+                .findFirst()
+                .orElseThrow();
+
+        assertNull(deletionHistory.getTask());
+    }
+    @Test
+    @DisplayName("Should allow project members to access project history")
+    void test_32() throws Exception {
+        mockMvc.perform(get("/api/projects/{projectId}/history", projectA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/projects/{projectId}/history", projectA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenC))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Should not allow non-members to access project history")
+    void test_33() throws Exception {
+        mockMvc.perform(get("/api/projects/{projectId}/history", projectA.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenB))
+                .andExpect(status().isNotFound());
     }
 }

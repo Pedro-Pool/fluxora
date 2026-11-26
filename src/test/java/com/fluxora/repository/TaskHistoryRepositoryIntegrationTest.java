@@ -117,12 +117,30 @@ class TaskHistoryRepositoryIntegrationTest extends AbstractIntegrationTest {
             String newValue
     ) {
         TaskHistory history = new TaskHistory(
+                historyTask.getProject(),
                 historyTask,
                 historyUser,
                 action,
                 fieldName,
                 oldValue,
                 newValue
+        );
+
+        entityManager.persist(history);
+        entityManager.flush();
+
+        return history;
+    }
+
+    private TaskHistory createDeletedHistory(Project historyProject, User historyUser){
+        TaskHistory history = new TaskHistory(
+                historyProject,
+                null,
+                historyUser,
+                TaskHistoryAction.DELETED,
+                null,
+                null,
+                null
         );
 
         entityManager.persist(history);
@@ -278,5 +296,71 @@ class TaskHistoryRepositoryIntegrationTest extends AbstractIntegrationTest {
         assertThat(persistedHistory.getNewValue()).isNull();
 
         assertThat(entityManager.find(Task.class, taskId)).isNull();
+    }
+    @Test
+    @DisplayName("Should return all history records belonging to a project")
+    void test_08() {
+        TaskHistory history1 = createHistory(
+                task, owner, TaskHistoryAction.CREATED,
+                null, null, null
+        );
+
+        TaskHistory history2 = createHistory(
+                task, member, TaskHistoryAction.UPDATED,
+                "title", "Old title", "New title"
+        );
+
+        Page<TaskHistory> result =
+                taskHistoryRepository.findAllByProjectId(
+                        project.getId(), pageable
+                );
+
+        assertThat(result.getContent())
+                .extracting(TaskHistory::getId)
+                .containsExactlyInAnyOrder(
+                        history1.getId(),
+                        history2.getId()
+                );
+
+        assertThat(result.getTotalElements()).isEqualTo(2);
+    }
+    @Test
+    @DisplayName("Should not return history belonging to another project")
+    void test_09() {
+        TaskHistory history = createHistory(
+                anotherTask, anotherUser, TaskHistoryAction.CREATED,
+                null, null, null
+        );
+
+        Page<TaskHistory> result =
+                taskHistoryRepository.findAllByProjectId(
+                        project.getId(), pageable
+                );
+
+        assertThat(result.getContent())
+                .extracting(TaskHistory::getId)
+                .doesNotContain(history.getId());
+    }
+    @Test
+    @DisplayName("Should return deletion history with null task id")
+    void test_10() {
+        TaskHistory history = createDeletedHistory(project, owner);
+
+        Page<TaskHistory> result =
+                taskHistoryRepository.findAllByProjectId(
+                        project.getId(), pageable
+                );
+
+        assertThat(result.getContent())
+                .extracting(TaskHistory::getId)
+                .containsExactly(history.getId());
+
+        TaskHistory returnedHistory = result.getContent().getFirst();
+
+        assertThat(returnedHistory.getTask()).isNull();
+        assertThat(returnedHistory.getProject().getId())
+                .isEqualTo(project.getId());
+        assertThat(returnedHistory.getAction())
+                .isEqualTo(TaskHistoryAction.DELETED);
     }
 }

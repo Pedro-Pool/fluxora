@@ -50,6 +50,14 @@ public class TaskHistoryService {
                 pageable
         );
     }
+    public Page<TaskHistory> findAllByProject(Long projectId, String email, Pageable pageable){
+        User user = finUserByEmail(email);
+
+        projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
+        return taskHistoryRepository.findAllByProjectId(projectId, pageable);
+    }
 
     private User finUserByEmail(String email){
         return userRepository.findByEmail(email)

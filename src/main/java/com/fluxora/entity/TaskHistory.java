@@ -14,6 +14,10 @@ public class TaskHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id")
     private Task task;
@@ -42,6 +46,7 @@ public class TaskHistory {
     protected TaskHistory(){}
 
     public TaskHistory(
+            Project project,
             Task task,
             User user,
             TaskHistoryAction action,
@@ -49,6 +54,10 @@ public class TaskHistory {
             String oldValue,
             String newValue) {
 
+
+        if (project == null){
+            throw new IllegalArgumentException("Project cannot be null");
+        }
         if (user == null){
             throw new IllegalArgumentException("User cannot be null");
         }
@@ -61,6 +70,7 @@ public class TaskHistory {
             );
         }
 
+        this.project = project;
         this.task = task;
         this.user = user;
         this.action = action;
@@ -71,6 +81,10 @@ public class TaskHistory {
     @PrePersist
     protected void onCreate(){
         this.createdAt = LocalDateTime.now();
+    }
+
+    public Project getProject() {
+        return project;
     }
 
     public Long getId() {

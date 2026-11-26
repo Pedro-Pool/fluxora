@@ -188,6 +188,7 @@ class TaskServiceTest {
         mockAuthenticatedUser();
 
         Task task = new Task("Study java", null);
+        task.assignTo(project);
 
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
         when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID)).thenReturn(Optional.of(task));
@@ -202,6 +203,7 @@ class TaskServiceTest {
         mockAuthenticatedUser();
 
         Task task = new Task("Study java", null);
+        task.assignTo(project);
 
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
         when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID)).thenReturn(Optional.of(task));
