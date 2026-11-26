@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -81,7 +82,7 @@ class TaskHistoryControllerTest {
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].action").value("CREATED"))
-                .andExpect(jsonPath("$.content[0].fieldName").doesNotExist())
+                .andExpect(jsonPath("$.content[0].fieldName").value(nullValue()))
                 .andExpect(jsonPath("$.totalElements").value(1));
 
         verify(taskHistoryService).findAll(
@@ -213,5 +214,40 @@ class TaskHistoryControllerTest {
                 .andExpect(jsonPath("$.totalElements").value(0));
 
         verify(taskHistoryService).findAll(eq(TASK_ID), eq(EMAIL), any(Pageable.class));
+    }
+    @Test
+    @DisplayName("Should return deletion history with null task id")
+    void test_09() throws Exception {
+
+        User user = new User("Test User", EMAIL, "hashedPassword");
+
+        TaskHistory history = new TaskHistory(
+                null,
+                user,
+                TaskHistoryAction.DELETED,
+                null,
+                null,
+                null
+        );
+
+        Page<TaskHistory> historyPage = new PageImpl<>(
+                List.of(history),
+                PageRequest.of(0, 10),
+                1
+        );
+
+        when(taskHistoryService.findAll(
+                eq(TASK_ID),
+                eq(EMAIL),
+                any(Pageable.class)
+        )).thenReturn(historyPage);
+
+        mockMvc.perform(get("/api/tasks/{taskId}/history", TASK_ID)
+                        .principal(authentication())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].action").value("DELETED"))
+                .andExpect(jsonPath("$.content[0].taskId").value(nullValue()))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 }

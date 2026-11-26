@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class TaskAuthorizationIntegrationTest {
+class   TaskAuthorizationIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
@@ -122,6 +122,18 @@ class TaskAuthorizationIntegrationTest {
 
     @AfterEach
     void tearDown() {
+        if (userA != null && userA.getId() != null) {
+            taskHistoryRepository.deleteAllByUserId(userA.getId());
+        }
+
+        if (userB != null && userB.getId() != null) {
+            taskHistoryRepository.deleteAllByUserId(userB.getId());
+        }
+
+        if (userC != null && userC.getId() != null) {
+            taskHistoryRepository.deleteAllByUserId(userC.getId());
+        }
+
         if (projectA != null && projectA.getId() != null) {
             taskRepository.deleteAll(
                     taskRepository.findAllByProjectId(projectA.getId())

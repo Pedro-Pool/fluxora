@@ -56,8 +56,7 @@ public class Task {
 
     @ManyToMany
     @JoinTable(name = "task_categories", joinColumns = @JoinColumn(name = "task_id"),
-    inverseJoinColumns = @JoinColumn(name = "category_id"),
-    uniqueConstraints = @UniqueConstraint(columnNames = {"task_id", "category_id"}))
+    inverseJoinColumns = @JoinColumn(name = "category_id"))
     private Set<Category> categories = new HashSet<>();
 
     public Task() {}
@@ -79,7 +78,7 @@ public class Task {
     protected void onCreate(){
         LocalDateTime now = LocalDateTime.now();
         if (createdAt == null){
-            createdAt = LocalDateTime.now();
+            createdAt = now;
         }
         updateAt = now;
     }
@@ -143,16 +142,7 @@ public class Task {
     public void removeCategory(Category category){
         categories.remove(category);
     }
-    public void replaceCategories(Set<Category> categories){
-        if (categories == null){
-            throw new IllegalArgumentException("Categories are mandatory");
-        }
-        if (categories.contains(null)){
-            throw new IllegalArgumentException("Category cannot be null");
-        }
-        this.categories.clear();
-        this.categories.addAll(categories);
-    }
+
 
 
     private String requireTitle(String title){

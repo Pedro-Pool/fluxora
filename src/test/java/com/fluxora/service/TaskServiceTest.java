@@ -11,6 +11,7 @@ import com.fluxora.repository.TaskHistoryRepository;
 import com.fluxora.repository.TaskRepository;
 import com.fluxora.exception.TaskNotFoundException;
 import com.fluxora.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,9 @@ class TaskServiceTest {
 
     @Mock
     private TaskHistoryRepository taskHistoryRepository;
+
+    @Mock
+    private EntityManager entityManager;
 
     @InjectMocks
     private TaskService taskService;
@@ -1815,5 +1819,168 @@ class TaskServiceTest {
         assertEquals(TaskHistoryAction.ASSIGNED, assigneeHistory.getAction());
         assertNull(assigneeHistory.getOldValue());
         assertEquals("3", assigneeHistory.getNewValue());
+    }
+    @Test
+    @DisplayName("Should register history when completing a task")
+    void test_59() {
+        Task task = createTask();
+
+        mockAuthenticatedUser();
+
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID))
+                .thenReturn(Optional.of(task));
+
+        Task completedTask = taskService.complete(1L, EMAIL);
+
+        assertEquals(TaskStatus.DONE, completedTask.getStatus());
+
+        ArgumentCaptor<TaskHistory> captor =
+                ArgumentCaptor.forClass(TaskHistory.class);
+
+        verify(taskHistoryRepository).save(captor.capture());
+
+        TaskHistory history = captor.getValue();
+
+        assertEquals(TaskHistoryAction.COMPLETED, history.getAction());
+        assertEquals("status", history.getFieldName());
+        assertEquals(TaskStatus.TODO.name(), history.getOldValue());
+        assertEquals(TaskStatus.DONE.name(), history.getNewValue());
+        assertSame(task, history.getTask());
+        assertSame(user, history.getUser());
+    }
+    @Test
+    @DisplayName("Should register history when reopening a task")
+    void test_60() {
+        Task task = createTask();
+        task.completed();
+
+        mockAuthenticatedUser();
+
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID))
+                .thenReturn(Optional.of(task));
+
+        Task reopenedTask = taskService.reopen(1L, EMAIL);
+
+        assertEquals(TaskStatus.TODO, reopenedTask.getStatus());
+
+        ArgumentCaptor<TaskHistory> captor =
+                ArgumentCaptor.forClass(TaskHistory.class);
+
+        verify(taskHistoryRepository).save(captor.capture());
+
+        TaskHistory history = captor.getValue();
+
+        assertEquals(TaskHistoryAction.REOPENED, history.getAction());
+        assertEquals("status", history.getFieldName());
+        assertEquals(TaskStatus.DONE.name(), history.getOldValue());
+        assertEquals(TaskStatus.TODO.name(), history.getNewValue());
+        assertSame(task, history.getTask());
+        assertSame(user, history.getUser());
+    }
+    @Test
+    @DisplayName("Should register history when canceling a task")
+    void test_61() {
+        Task task = createTask();
+
+        mockAuthenticatedUser();
+
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID))
+                .thenReturn(Optional.of(task));
+
+        Task canceledTask = taskService.cancel(1L, EMAIL);
+
+        assertEquals(TaskStatus.CANCELED, canceledTask.getStatus());
+
+        ArgumentCaptor<TaskHistory> captor =
+                ArgumentCaptor.forClass(TaskHistory.class);
+
+        verify(taskHistoryRepository).save(captor.capture());
+
+        TaskHistory history = captor.getValue();
+
+        assertEquals(TaskHistoryAction.CANCELED, history.getAction());
+        assertEquals("status", history.getFieldName());
+        assertEquals(TaskStatus.TODO.name(), history.getOldValue());
+        assertEquals(TaskStatus.CANCELED.name(), history.getNewValue());
+        assertSame(task, history.getTask());
+        assertSame(user, history.getUser());
+    }
+    @Test
+    @DisplayName("Should not register history when completing an already completed task")
+    void test_62() {
+        Task task = createTask();
+        task.completed();
+
+        mockAuthenticatedUser();
+
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID))
+                .thenReturn(Optional.of(task));
+
+        Task completedTask = taskService.complete(1L, EMAIL);
+
+        assertEquals(TaskStatus.DONE, completedTask.getStatus());
+
+        verify(taskHistoryRepository, never()).save(any(TaskHistory.class));
+    }
+    @Test
+    @DisplayName("Should not register history when reopening an already open task")
+    void test_63() {
+        Task task = createTask();
+
+        mockAuthenticatedUser();
+
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID))
+                .thenReturn(Optional.of(task));
+
+        Task reopenedTask = taskService.reopen(1L, EMAIL);
+
+        assertEquals(TaskStatus.TODO, reopenedTask.getStatus());
+
+        verify(taskHistoryRepository, never()).save(any(TaskHistory.class));
+    }
+    @Test
+    @DisplayName("Should not register history when canceling an already canceled task")
+    void test_64() {
+        Task task = createTask();
+        task.cancel();
+
+        mockAuthenticatedUser();
+
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID))
+                .thenReturn(Optional.of(task));
+
+        Task canceledTask = taskService.cancel(1L, EMAIL);
+
+        assertEquals(TaskStatus.CANCELED, canceledTask.getStatus());
+
+        verify(taskHistoryRepository, never()).save(any(TaskHistory.class));
+    }
+    @Test
+    @DisplayName("Should register history when deleting a task")
+    void test_65() {
+        Task task = createTask();
+
+        mockAuthenticatedUser();
+
+        when(taskRepository.findByIdAndProjectMemberUserId(1L, USER_ID))
+                .thenReturn(Optional.of(task));
+
+        taskService.delete(1L, EMAIL);
+
+        ArgumentCaptor<TaskHistory> captor =
+                ArgumentCaptor.forClass(TaskHistory.class);
+
+        verify(taskHistoryRepository).saveAndFlush(captor.capture());
+
+        TaskHistory history = captor.getValue();
+
+        assertEquals(TaskHistoryAction.DELETED, history.getAction());
+        assertNull(history.getFieldName());
+        assertNull(history.getOldValue());
+        assertNull(history.getNewValue());
+        assertSame(task, history.getTask());
+        assertSame(user, history.getUser());
+
+        verify(taskRepository).delete(task);
     }
 }

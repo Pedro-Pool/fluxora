@@ -14,8 +14,8 @@ public class TaskHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "task_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "task_id")
     private Task task;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -49,14 +49,16 @@ public class TaskHistory {
             String oldValue,
             String newValue) {
 
-        if (task == null){
-            throw new IllegalArgumentException("Task cannot be null");
-        }
         if (user == null){
             throw new IllegalArgumentException("User cannot be null");
         }
         if (action == null){
             throw new IllegalArgumentException("Action cannot be null");
+        }
+        if (task == null && action != TaskHistoryAction.DELETED){
+            throw new IllegalArgumentException(
+                    "Task can only be null for DELETED action"
+            );
         }
 
         this.task = task;
@@ -67,7 +69,7 @@ public class TaskHistory {
         this.newValue = newValue;
     }
     @PrePersist
-    protected void onCrate(){
+    protected void onCreate(){
         this.createdAt = LocalDateTime.now();
     }
 

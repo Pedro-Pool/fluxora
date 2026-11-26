@@ -1,4 +1,3 @@
-
 package com.fluxora.repository;
 
 import com.fluxora.config.AbstractIntegrationTest;
@@ -237,5 +236,47 @@ class TaskHistoryRepositoryIntegrationTest extends AbstractIntegrationTest {
         assertThat(result.getTotalPages()).isEqualTo(3);
         assertThat(result.getNumber()).isZero();
         assertThat(result.hasNext()).isTrue();
+    }
+    @Test
+    @DisplayName("Should preserve deletion history after task is deleted")
+    void test_07() {
+        TaskHistory history = createHistory(
+                task,
+                owner,
+                TaskHistoryAction.DELETED,
+                null,
+                null,
+                null
+        );
+
+        Long taskId = task.getId();
+        Long historyId = history.getId();
+        Long ownerId = owner.getId();
+
+        entityManager.clear();
+
+        entityManager.createQuery(
+                        "DELETE FROM Task t WHERE t.id = :taskId"
+                )
+                .setParameter("taskId", taskId)
+                .executeUpdate();
+
+        entityManager.clear();
+
+        TaskHistory persistedHistory =
+                entityManager.find(TaskHistory.class, historyId);
+
+        assertThat(persistedHistory).isNotNull();
+        assertThat(persistedHistory.getAction())
+                .isEqualTo(TaskHistoryAction.DELETED);
+        assertThat(persistedHistory.getTask()).isNull();
+        assertThat(persistedHistory.getUser().getId())
+                .isEqualTo(ownerId);
+
+        assertThat(persistedHistory.getFieldName()).isNull();
+        assertThat(persistedHistory.getOldValue()).isNull();
+        assertThat(persistedHistory.getNewValue()).isNull();
+
+        assertThat(entityManager.find(Task.class, taskId)).isNull();
     }
 }

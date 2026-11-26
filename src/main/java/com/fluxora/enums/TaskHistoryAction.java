@@ -6,5 +6,6 @@ public enum TaskHistoryAction {
     COMPLETED,
     REOPENED,
     CANCELED,
-    ASSIGNED
+    ASSIGNED,
+    DELETED
 }

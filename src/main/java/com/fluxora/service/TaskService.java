@@ -10,6 +10,8 @@ import com.fluxora.repository.TaskHistoryRepository;
 import com.fluxora.repository.TaskRepository;
 import com.fluxora.exception.TaskNotFoundException;
 import com.fluxora.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -29,16 +31,19 @@ public class TaskService {
     private final UserRepository userRepository;
     private final TaskHistoryRepository taskHistoryRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final EntityManager entityManager;
 
     public TaskService(TaskRepository taskRepository,
                        UserRepository userRepository,
                        TaskHistoryRepository taskHistoryRepository,
-                       ProjectMemberRepository projectMemberRepository){
+                       ProjectMemberRepository projectMemberRepository,
+                       EntityManager entityManager){
 
         this.userRepository = userRepository;
         this.taskRepository = taskRepository;
         this.taskHistoryRepository = taskHistoryRepository;
         this.projectMemberRepository = projectMemberRepository;
+        this.entityManager = entityManager;
     }
     public Page<Task> findAll(
             Long projectId,
@@ -294,28 +299,48 @@ public class TaskService {
     public Task complete(Long id, String email){
         User user = findUserByEmail(email);
         Task task = findTaskByIdAndMember(id, user.getId());
-        task.completed();
-        return task;
+
+        return changeStatusWithHistory(
+                task, user, TaskHistoryAction.COMPLETED
+        );
     }
     @Transactional
     public Task reopen(Long id, String email){
         User user = findUserByEmail(email);
         Task task = findTaskByIdAndMember(id, user.getId());
-        task.reopen();
-        return task;
+
+        return changeStatusWithHistory(
+                task, user, TaskHistoryAction.REOPENED
+        );
     }
     @Transactional
     public Task cancel(Long id, String email){
         User user = findUserByEmail(email);
         Task task = findTaskByIdAndMember(id, user.getId());
-        task.cancel();
-        return task;
+
+        return changeStatusWithHistory(
+                task, user, TaskHistoryAction.CANCELED
+        );
     }
 
     @Transactional
     public void delete(Long id, String email){
         User user = findUserByEmail(email);
         Task task = findTaskByIdAndMember(id, user.getId());
+
+        TaskHistory history = new TaskHistory(
+                task,
+                user,
+                TaskHistoryAction.DELETED,
+                null,
+                null,
+                null
+        );
+
+        taskHistoryRepository.saveAndFlush(history);
+
+        entityManager.detach(history);
+
         taskRepository.delete(task);
     }
 
@@ -347,5 +372,34 @@ public class TaskService {
         }
 
         return assignee;
+    }
+    private Task changeStatusWithHistory(
+            Task task,
+            User user,
+            TaskHistoryAction action
+    ){
+        TaskStatus oldStatus = task.getStatus();
+
+        switch (action) {
+            case COMPLETED -> task.completed();
+            case REOPENED -> task.reopen();
+            case CANCELED -> task.cancel();
+            default -> throw new IllegalArgumentException("Unsupported task history action");
+        }
+
+        TaskStatus currentStatus = task.getStatus();
+
+        if (!Objects.equals(oldStatus, currentStatus)){
+            taskHistoryRepository.save(new TaskHistory(
+                    task,
+                    user,
+                    action,
+                    "status",
+                    oldStatus != null ? oldStatus.name() : null,
+                    currentStatus != null ? currentStatus.name() : null
+            ));
+        }
+
+        return task;
     }
 }

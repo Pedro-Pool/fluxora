@@ -20,7 +20,7 @@ public record TaskHistoryResponse(
     public static TaskHistoryResponse from(TaskHistory history){
         return new TaskHistoryResponse(
                 history.getId(),
-                history.getTask().getId(),
+                history.getTask() != null ? history.getId() : null,
                 history.getUser().getId(),
                 history.getUser().getName(),
                 history.getUser().getEmail(),
